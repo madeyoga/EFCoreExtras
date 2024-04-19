@@ -37,13 +37,13 @@ public static class BulkUpdateDbContextExtensions
             throw new ArgumentException("The objects or properties provided cannot be empty.");
 
         var modelType = typeof(T);
-        var tableName = context.Model.FindEntityType(modelType)!.GetTableName();
-        var primaryKeyPropertyName = context.Model
-            .FindEntityType(modelType)!
+        var entityType = context.Model.FindEntityType(modelType)!;
+        var tableName = entityType.GetTableName();
+        var primaryKeyPropertyName = entityType
             .FindPrimaryKey()!
             .Properties
             .Select(x => x.Name)
-            .FirstOrDefault()!;
+            .First();
 
         // Query:
         //UPDATE product 
@@ -83,10 +83,10 @@ public static class BulkUpdateDbContextExtensions
                 }
 
                 var pkValue = pkProp.GetValue(obj, null)!;
-                var fieldValue = fieldProp.GetValue(obj, null)!;
+                var fieldValue = fieldProp.GetValue(obj, null);
 
                 whenQueryBuilder.Append($"WHEN {primaryKeyPropertyName} = {pkValue} THEN {{{paramIndex++}}} ");
-                parameters.Add(fieldValue);
+                parameters.Add(fieldValue is null ? DBNull.Value : fieldValue);
                 ids.Add(pkValue.ToString()!);
             }
 
