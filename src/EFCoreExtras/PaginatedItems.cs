@@ -44,11 +44,17 @@ public class PaginatedItems<TEntity>(int pageIndex, int pageSize, long count, IE
         var totalItems = await query.LongCountAsync();
         var normalizedIndex = pageIndex - 1;
 
-        var dataInPage = await query
-            .Skip(pageSize * normalizedIndex)
-            .Take(pageSize)
-            .AsNoTracking()
-            .ToListAsync();
+        query = query.AsNoTracking();
+
+        if (pageSize >= 0)
+        {
+            query = query
+                .Skip(pageSize * normalizedIndex)
+                .Take(pageSize);
+        }
+
+        var dataInPage = await query.ToListAsync();
+
         return new PaginatedItems<TEntity>(pageIndex, pageSize, totalItems, dataInPage);
     }
 }

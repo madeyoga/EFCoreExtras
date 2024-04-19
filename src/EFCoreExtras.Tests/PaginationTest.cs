@@ -45,19 +45,17 @@ public class PaginationTest
         Assert.AreEqual(4, paginatedItems2.Data.Count());
     }
 
-    // [TestMethod]
-    // public async Task NegativeOnePageSize_ReturnsAllObjects()
-    // {
-    //     var query = items.BuildMock();
+    [TestMethod]
+    public async Task NegativePageSize_ReturnsAllObjects()
+    {
+        var query = items.BuildMock();
 
-    //     var paginatedItems = await Pagination.CreateAsync(1, -1, query);
+        var paginatedItems = await Pagination.CreateAsync(1, -1, query);
 
-    //     Assert.AreEqual(true, query.Skip(-1).Take(-1).ToList().Count != 0);
-
-    //     Assert.AreEqual(1, paginatedItems.PageIndex);
-    //     Assert.AreEqual(items.Count, paginatedItems.TotalItems);
-    //     Assert.AreEqual(true, paginatedItems.Data.Any());
-    // }
+        Assert.AreEqual(1, paginatedItems.PageIndex);
+        Assert.AreEqual(items.Count, paginatedItems.TotalItems);
+        Assert.AreEqual(items.Count, paginatedItems.Data.Count());
+    }
 
     [TestMethod]
     public async Task LastPage_HasNextPage_False()
