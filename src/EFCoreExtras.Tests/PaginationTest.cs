@@ -1,39 +1,71 @@
+using MockQueryable.Moq;
+
 namespace EFCoreExtras.Tests;
 
 [TestClass]
 public class PaginationTest
 {
+    readonly List<Item> items = [];
+
+    [TestInitialize]
+    public void Setup()
+    {
+        items.AddRange([
+            new Item { Id = 1, Name = "A", },
+            new Item { Id = 2, Name = "B", },
+            new Item { Id = 3, Name = "C", },
+            new Item { Id = 4, Name = "D", },
+            new Item { Id = 5, Name = "E", },
+            new Item { Id = 6, Name = "F", },
+            new Item { Id = 7, Name = "G", },
+            new Item { Id = 8, Name = "H", },
+            new Item { Id = 9, Name = "I", },
+        ]);
+    }
+
     [TestMethod]
     public async Task CreatePaginatedItems()
     {
-        List<Item> items = [
-            new Item { Id = 1, Name = "A", Quantity = 10 },
-            new Item { Id = 2, Name = "B", Quantity = 10 },
-            new Item { Id = 3, Name = "C", Quantity = 10 },
-            new Item { Id = 4, Name = "D", Quantity = 10 },
-            new Item { Id = 5, Name = "E", Quantity = 10 },
-            new Item { Id = 6, Name = "F", Quantity = 10 },
-            new Item { Id = 7, Name = "G", Quantity = 10 },
-            new Item { Id = 8, Name = "H", Quantity = 10 },
-            new Item { Id = 9, Name = "I", Quantity = 10 },
-        ];
+        var query = items.BuildMock();
 
-        var paginatedItems = await Pagination.CreateAsync(1, 5, items.AsQueryable());
+        var paginatedItems = await Pagination.CreateAsync(1, 5, query);
 
-        Assert.Equals(paginatedItems.PageIndex, 1);
-        Assert.Equals(paginatedItems.PageSize, 5);
-        Assert.Equals(paginatedItems.TotalPages, 2);
-        Assert.Equals(paginatedItems.TotalItems, items.Count);
-        Assert.Equals(paginatedItems.Data.Count(), 5);
-        Assert.IsTrue(paginatedItems.HasNextPage);
+        Assert.AreEqual(1, paginatedItems.PageIndex);
+        Assert.AreEqual(5, paginatedItems.PageSize);
+        Assert.AreEqual(2, paginatedItems.TotalPages);
+        Assert.AreEqual(items.Count, paginatedItems.TotalItems);
+        Assert.AreEqual(5, paginatedItems.Data.Count());
 
-        var paginatedItems2 = await Pagination.CreateAsync(2, 5, items.AsQueryable());
+        var paginatedItems2 = await Pagination.CreateAsync(2, 5, query);
 
-        Assert.Equals(paginatedItems2.PageIndex, 2);
-        Assert.Equals(paginatedItems2.PageSize, 5);
-        Assert.Equals(paginatedItems2.TotalPages, 2);
-        Assert.Equals(paginatedItems2.TotalItems, items.Count);
-        Assert.Equals(paginatedItems2.Data.Count(), 4);
+        Assert.AreEqual(2, paginatedItems2.PageIndex);
+        Assert.AreEqual(5, paginatedItems2.PageSize);
+        Assert.AreEqual(2, paginatedItems2.TotalPages);
+        Assert.AreEqual(items.Count, paginatedItems2.TotalItems);
+        Assert.AreEqual(4, paginatedItems2.Data.Count());
+    }
+
+    // [TestMethod]
+    // public async Task NegativeOnePageSize_ReturnsAllObjects()
+    // {
+    //     var query = items.BuildMock();
+
+    //     var paginatedItems = await Pagination.CreateAsync(1, -1, query);
+
+    //     Assert.AreEqual(true, query.Skip(-1).Take(-1).ToList().Count != 0);
+
+    //     Assert.AreEqual(1, paginatedItems.PageIndex);
+    //     Assert.AreEqual(items.Count, paginatedItems.TotalItems);
+    //     Assert.AreEqual(true, paginatedItems.Data.Any());
+    // }
+
+    [TestMethod]
+    public async Task LastPage_HasNextPage_False()
+    {
+        var query = items.BuildMock();
+
+        var paginatedItems = await Pagination.CreateAsync(2, 5, query);
+
         Assert.IsFalse(paginatedItems.HasNextPage);
     }
 }
