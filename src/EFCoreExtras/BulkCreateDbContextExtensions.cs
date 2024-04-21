@@ -31,7 +31,7 @@ public static class BulkCreateDbContextExtensions
             .ToList();
 
         var queryBuilder = new StringBuilder();
-        queryBuilder.AppendLine($"INSERT INTO {tableName} ({string.Join(',', propertyNames)}) VALUES ");
+        queryBuilder.Append($"INSERT INTO {tableName} ({string.Join(',', propertyNames)}) VALUES ");
 
         List<object> parameters = [];
         int paramIndex = 0;
@@ -43,23 +43,30 @@ public static class BulkCreateDbContextExtensions
             {
                 if (property.ValueGenerated == ValueGenerated.OnAdd)
                 {
-                    queryBuilder.Append("DEFAULT,");
+                    queryBuilder.Append("NULL, "); // sqlite does not support DEFAULT keyword.
+                    continue;
+                }
+
+                var propInfo = modelType.GetProperty(property.Name)!;
+                var propValue = propInfo.GetValue(obj, null);
+                if (propValue is null)
+                {
+                    queryBuilder.Append("NULL, ");
                 }
                 else
                 {
-                    var propInfo = modelType.GetProperty(property.Name)!;
-                    var propValue = propInfo.GetValue(obj, null);
-                    parameters.Add(propValue is null ? DBNull.Value : propValue);
-                    queryBuilder.Append($"{{{paramIndex++}}},");
+                    parameters.Add(propValue);
+                    queryBuilder.Append($"{{{paramIndex++}}}, ");
                 }
             }
 
-            queryBuilder.Length--; // Remove last character ','
+            queryBuilder.Length -= 2; // Remove ", "
             queryBuilder.Append("), ");
         }
 
         queryBuilder.Length -= 2; // Remove last 2 characters, a comma anda space.
-
-        return context.Database.ExecuteSqlRawAsync(queryBuilder.ToString(), parameters);
+        var query = queryBuilder.ToString();
+        Console.WriteLine(query);
+        return context.Database.ExecuteSqlRawAsync(query, parameters);
     }
 }

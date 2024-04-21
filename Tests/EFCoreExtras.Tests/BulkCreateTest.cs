@@ -6,7 +6,9 @@ namespace EFCoreExtras.Tests;
 public class BulkCreateTest
 {
     readonly List<Item> items = [];
+
     TestDbContext _dbContext = null!;
+    DbContextOptions<TestDbContext> options = null!;
 
     [TestInitialize]
     public void Setup()
@@ -22,17 +24,20 @@ public class BulkCreateTest
             new Item { Id = 8, Name = "H", },
             new Item { Id = 9, Name = "I", },
         ]);
-        var options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseSqlite("Data Source=:memory:") // Using an in-memory database for testing
+        options = new DbContextOptionsBuilder<TestDbContext>()
+            .UseSqlite("DataSource=:memory:") // Using an in-memory database for testing
             .Options;
 
         _dbContext = new TestDbContext(options);
+        _dbContext.Database.OpenConnection();
+        _dbContext.Database.EnsureCreated();
     }
 
     [TestCleanup]
     public void Cleanup()
     {
         _dbContext.Database.EnsureDeleted();
+        _dbContext.Database.CloseConnection();
         _dbContext.Dispose();
     }
 
@@ -40,5 +45,13 @@ public class BulkCreateTest
     public async Task BulkCreateT()
     {
         await _dbContext.BulkCreateAsync(items);
+
+        Assert.AreEqual(items.Count, _dbContext.Items.Count());
+
+        foreach (var item in items)
+        {
+            var itemExists = _dbContext.Items.Where(i => i.Id == item.Id).Any();
+            Assert.IsTrue(itemExists);
+        }
     }
 }
