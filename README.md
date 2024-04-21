@@ -13,9 +13,9 @@ Bulk operations typically reduce the number of database round-trips required. Th
 
 ### Others
 
-- `Pagination`
-
 Easily paginate `IQueryable` with `Pagination` class.
+
+- `Pagination`
 
 
 ## Usage
