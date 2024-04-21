@@ -12,7 +12,7 @@ public static class QueryableExtensions
     /// <param name="propertyName"></param>
     /// <param name="method"></param>
     /// <returns><see cref="{IOrderedQueryable[T]}"/></returns>
-    public static IOrderedQueryable<T> OrderByColumnUsing<T>(this IQueryable<T> source, string propertyName, string method)
+    public static IOrderedQueryable<T> OrderByColumnName<T>(this IQueryable<T> source, string propertyName, string method)
     {
         var parameter = Expression.Parameter(typeof(T), "item");
         var property = Expression.Property(parameter, propertyName);
