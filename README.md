@@ -51,7 +51,7 @@ VALUES (..., 'Name', 1000),
 ```cs
 var employees = context.Employees.ToList();
 
-foreach (var employee in context.Employees)
+foreach (var employee in employees)
 {
     employee.Name = $"{employee.Name} {employee.Id}"
     employee.Salary += 1000;
