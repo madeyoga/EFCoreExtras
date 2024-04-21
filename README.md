@@ -76,3 +76,9 @@ SET Name = CASE
 END
 WHERE id IN (1, 2, ...)
 ```
+
+## Contribution
+Your contributions are always welcome! If you find any bugs or have suggestions for improvement, please feel free to open an issue or a pull request and let's sort things out.
+
+## License
+This library is licensed under the MIT License.
