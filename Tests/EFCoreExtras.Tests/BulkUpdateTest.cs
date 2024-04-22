@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 namespace EFCoreExtras.Tests;
 
 [TestClass]
-public class BulkCreateTest
+public class BulkUpdateTests
 {
     readonly List<Item> items = [];
 
@@ -31,6 +31,9 @@ public class BulkCreateTest
         _dbContext = new TestDbContext(options);
         _dbContext.Database.OpenConnection();
         _dbContext.Database.EnsureCreated();
+
+        _dbContext.Items.AddRange(items);
+        _dbContext.SaveChanges();
     }
 
     [TestCleanup]
@@ -42,21 +45,27 @@ public class BulkCreateTest
     }
 
     [TestMethod]
-    public async Task BulkCreateListOfItems()
+    public async Task BulkUpdateListOfItems()
     {
-        await _dbContext.BulkCreateAsync(items);
+        var items = await _dbContext.Items.ToListAsync();
 
-        Assert.AreEqual(items.Count, _dbContext.Items.Count());
-
-        var itemExists = true;
-        foreach (var item in items)
+        foreach (var item in items) 
         {
-            itemExists = itemExists && _dbContext.Items
-                .Where(i => i.Id == item.Id)
-                .Where(i => i.Name == item.Name)
-                .Where(i => i.Quantity == item.Quantity)
+            item.Name = $"{item.Name} {item.Id}";
+            item.Quantity += 10;
+        }
+
+        await _dbContext.BulkUpdateAsync(items, ["Name", "Quantity"]);
+
+        var updated = true;
+
+        foreach(var item in items)
+        {
+            updated = updated && _dbContext.Items
+                .Where(i => i.Name == item.Name && i.Quantity == item.Quantity)
                 .Any();
         }
-        Assert.IsTrue(itemExists);
+
+        Assert.IsTrue(updated);
     }
 }

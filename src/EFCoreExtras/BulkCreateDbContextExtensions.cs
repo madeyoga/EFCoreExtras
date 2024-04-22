@@ -66,7 +66,6 @@ public static class BulkCreateDbContextExtensions
 
         queryBuilder.Length -= 2; // Remove last 2 characters, a comma anda space.
         var query = queryBuilder.ToString();
-        Console.WriteLine(query);
         return context.Database.ExecuteSqlRawAsync(query, parameters);
     }
 }
