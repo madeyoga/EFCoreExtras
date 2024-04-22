@@ -17,7 +17,7 @@ public static class BulkUpdateDbContextExtensions
         return batches;
     }
 
-    public static async Task<int> BulkUpdateWithBatchAsync<T>(this DbContext context, List<T> objects, string[] properties, int batchSize = 100) where T : class
+    public static async Task<int> BulkUpdateAsync<T>(this DbContext context, List<T> objects, string[] properties, int batchSize = 100) where T : class
     {
         int affectedRows = 0;
 
