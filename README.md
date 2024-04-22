@@ -15,27 +15,6 @@ Bulk operations typically reduce the number of database round-trips required. Th
 
 - `Pagination`: Easily paginate `IQueryable` with `Pagination` class.
 
-```cs
-var query = _dbContext.Employees.AsQueryable();
-
-PaginatedItems<Employee> response = await Pagination.CreateAsync(pageIndex: 1, pageSize: 10, query);
-
-return TypedResults.Ok(response);
-```
-
-```json
-{
-    "data": [
-        ...
-    ],
-    "pageIndex": 1,
-    "pageSize": 10,
-    "totalItems": 100,
-    "totalPages": 10,
-    "hasNextPage": true,
-}
-```
-
 
 ## Usage
 
@@ -94,6 +73,29 @@ SET Name = CASE
     ELSE Salary
 END
 WHERE id IN (1, 2, ...)
+```
+
+### Pagination class
+
+```cs
+var query = _dbContext.Employees.AsQueryable();
+
+PaginatedItems<Employee> response = await Pagination.CreateAsync(pageIndex: 1, pageSize: 10, query);
+
+return TypedResults.Ok(response);
+```
+
+```json
+{
+    "data": [
+        ...
+    ],
+    "pageIndex": 1,
+    "pageSize": 10,
+    "totalItems": 100,
+    "totalPages": 10,
+    "hasNextPage": true,
+}
 ```
 
 ## Contribution
