@@ -6,22 +6,13 @@ namespace EFCoreExtras;
 
 public static class BulkUpdateDbContextExtensions
 {
-    private static List<List<T>> SplitIntoBatches<T>(List<T> objects, int batchSize)
-    {
-        var batches = new List<List<T>>();
-        for (int i = 0; i < objects.Count; i += batchSize)
-        {
-            List<T> batch = objects.Skip(i).Take(batchSize).ToList();
-            batches.Add(batch);
-        }
-        return batches;
-    }
-
     public static async Task<int> BulkUpdateAsync<T>(this DbContext context, List<T> objects, string[] properties, int batchSize = 100) where T : class
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(batchSize, 1);
+
         int affectedRows = 0;
 
-        var batches = SplitIntoBatches(objects, batchSize);
+        var batches = ModelSelection.SplitIntoBatches(objects, batchSize);
 
         foreach (var batch in batches)
         {
@@ -36,6 +27,44 @@ public static class BulkUpdateDbContextExtensions
         if (objects.Count == 0 || properties.Length == 0)
             throw new ArgumentException("The objects or properties provided cannot be empty.");
 
+        var result = CreateBulkUpdateQuery(context, objects, properties);
+
+        if (result.Ids.Count == 0)
+        {
+            return Task.FromResult(0);
+        }
+
+        return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
+    }
+
+    public static int BulkUpdate<T>(this DbContext context, List<T> objects, string[] properties, int batchSize = 100) 
+        where T : class
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(batchSize, 1);
+
+        if (objects.Count == 0 || properties.Length == 0)
+            throw new ArgumentException("The objects or properties provided cannot be empty.");
+
+        int affectedRows = 0;
+
+        var batches = ModelSelection.SplitIntoBatches(objects, batchSize);
+
+        foreach (var batch in batches)
+        {
+            var result = CreateBulkUpdateQuery(context, batch, properties);
+
+            if (result.Ids.Count > 0)
+            {
+                affectedRows += context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
+            }
+        }
+
+        return affectedRows;
+    }
+
+    public static CreateBulkUpdateQueryResult CreateBulkUpdateQuery<T>(this DbContext context, List<T> objects, string[] properties)
+        where T : class
+    {
         var modelType = typeof(T);
         var entityType = context.Model.FindEntityType(modelType)!;
         var tableName = entityType.GetTableName();
@@ -44,20 +73,6 @@ public static class BulkUpdateDbContextExtensions
             .Properties
             .Select(x => x.Name)
             .First();
-
-        // Query:
-        //UPDATE product 
-        //SET name = CASE
-        //      WHEN id = 1 THEN 'New Name 1'
-        //      WHEN id = 2 THEN 'New Name 2'...
-        //      ELSE name
-        //    END,
-        //    quantity = CASE
-        //      WHEN id = 1 THEN 10
-        //      WHEN id = 2 THEN 20...
-        //      ELSE quantity
-        //    END
-        //WHERE id IN(1, 2, ...);
 
         var queryBuilder = new StringBuilder();
         queryBuilder.Append($"UPDATE {tableName} SET ");
@@ -77,16 +92,27 @@ public static class BulkUpdateDbContextExtensions
                 var entry = context.Entry(obj);
 
                 // Skip if given property name is not modified.
-                if (!entry.Properties.Where(p => p.IsModified && p.Metadata.Name == fieldName).Any())
+                if (!entry.Properties.Where(p => p.Metadata.Name == fieldName && p.IsModified).Any())
                 {
                     continue;
                 }
 
                 var pkValue = pkProp.GetValue(obj, null)!;
+
+                whenQueryBuilder.Append($"WHEN {primaryKeyPropertyName} = {pkValue} ");
+
                 var fieldValue = fieldProp.GetValue(obj, null);
 
-                whenQueryBuilder.Append($"WHEN {primaryKeyPropertyName} = {pkValue} THEN {{{paramIndex++}}} ");
-                parameters.Add(fieldValue is null ? DBNull.Value : fieldValue);
+                if (fieldValue is null)
+                {
+                    whenQueryBuilder.Append("THEN NULL ");
+                }
+                else
+                {
+                    whenQueryBuilder.Append($"THEN {{{paramIndex++}}} ");
+                    parameters.Add(fieldValue);
+                }
+
                 ids.Add(pkValue.ToString()!);
             }
 
@@ -105,13 +131,6 @@ public static class BulkUpdateDbContextExtensions
 
         queryBuilder.Append($" WHERE {primaryKeyPropertyName} IN ({string.Join(',', ids)})");
 
-        var query = queryBuilder.ToString();
-
-        if (ids.Count == 0)
-        {
-            return Task.FromResult(0);
-        }
-        
-        return context.Database.ExecuteSqlRawAsync(query, parameters);
+        return new CreateBulkUpdateQueryResult(queryBuilder.ToString(), parameters, ids);
     }
 }
