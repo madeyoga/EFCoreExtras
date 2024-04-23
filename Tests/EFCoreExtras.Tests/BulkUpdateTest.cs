@@ -45,7 +45,7 @@ public class BulkUpdateTests
     }
 
     [TestMethod]
-    public async Task BulkUpdateListOfItems()
+    public async Task BulkUpdateAsyncListOfItems()
     {
         var items = await _dbContext.Items.ToListAsync();
 
@@ -56,6 +56,31 @@ public class BulkUpdateTests
         }
 
         await _dbContext.BulkUpdateAsync(items, ["Name", "Quantity"]);
+
+        var updated = true;
+
+        foreach(var item in items)
+        {
+            updated = updated && _dbContext.Items
+                .Where(i => i.Name == item.Name && i.Quantity == item.Quantity)
+                .Any();
+        }
+
+        Assert.IsTrue(updated);
+    }
+
+    [TestMethod]
+    public void BulkUpdateListOfItems()
+    {
+        var items = _dbContext.Items.ToList();
+
+        foreach (var item in items) 
+        {
+            item.Name = $"{item.Name} {item.Id}";
+            item.Quantity += 10;
+        }
+
+        _dbContext.BulkUpdate(items, ["Name", "Quantity"]);
 
         var updated = true;
 

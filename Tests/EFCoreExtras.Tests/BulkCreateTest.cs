@@ -42,7 +42,7 @@ public class BulkCreateTest
     }
 
     [TestMethod]
-    public async Task BulkCreateListOfItems()
+    public async Task BulkCreateAsyncListOfItems()
     {
         await _dbContext.BulkCreateAsync(items);
 
@@ -58,5 +58,26 @@ public class BulkCreateTest
                 .Any();
         }
         Assert.IsTrue(itemExists);
+    }
+
+    [TestMethod]
+    public void BulkCreateListOfItems()
+    {
+        _dbContext.BulkCreate(items);
+
+        Assert.AreEqual(items.Count, _dbContext.Items.Count());
+
+        var itemExists = true;
+        foreach (var item in items)
+        {
+            itemExists = itemExists && _dbContext.Items
+                .Where(i => i.Id == item.Id)
+                .Where(i => i.Name == item.Name)
+                .Where(i => i.Quantity == item.Quantity)
+                .Any();
+        }
+        Assert.IsTrue(itemExists);
+
+        _dbContext.Database.EnsureDeleted();
     }
 }
