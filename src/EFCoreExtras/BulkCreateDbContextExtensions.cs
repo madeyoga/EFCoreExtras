@@ -125,7 +125,6 @@ public static class BulkCreateDbContextExtensions
         }
 
         queryBuilder.Length -= 2; // Remove last 2 characters, a comma anda space.
-        queryBuilder.ToString();
 
         return new CreateBulkInsertQueryResult(queryBuilder.ToString(), parameters);
     }
