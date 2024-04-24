@@ -1,4 +1,6 @@
 ﻿using BenchmarkDotNet.Running;
+using EFCoreExtras.Benchmarks;
 
-BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
+var summary = BenchmarkRunner.Run<BulkCreateBenchmark>();
+// BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
 

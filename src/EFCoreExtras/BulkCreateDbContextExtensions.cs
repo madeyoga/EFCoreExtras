@@ -101,7 +101,7 @@ public static class BulkCreateDbContextExtensions
 
             foreach (var property in properties)
             {
-                if (property.ValueGenerated == ValueGenerated.OnAdd)
+                if (property.ValueGenerated == ValueGenerated.OnAdd && property.ClrType != typeof(Guid))
                 {
                     queryBuilder.Append("NULL, "); // sqlite does not support DEFAULT keyword.
                     continue;
