@@ -13,6 +13,7 @@ public class BulkCreateTest
     [TestInitialize]
     public void Setup()
     {
+        // Add more data
         items.AddRange([
             new Item { Id = 1, Name = "A", },
             new Item { Id = 2, Name = "B", },
@@ -44,7 +45,7 @@ public class BulkCreateTest
     [TestMethod]
     public async Task BulkCreateAsyncListOfItems()
     {
-        await _dbContext.BulkCreateAsync(items);
+        await _dbContext.BulkCreateAsync(items, 5);
 
         Assert.AreEqual(items.Count, _dbContext.Items.Count());
 
@@ -63,7 +64,7 @@ public class BulkCreateTest
     [TestMethod]
     public void BulkCreateListOfItems()
     {
-        _dbContext.BulkCreate(items);
+        _dbContext.BulkCreate(items, 5);
 
         Assert.AreEqual(items.Count, _dbContext.Items.Count());
 
