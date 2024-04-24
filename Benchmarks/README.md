@@ -1,13 +1,11 @@
 ```
-
 BenchmarkDotNet v0.13.12, macOS Sonoma 14.4.1 (23E224) [Darwin 23.4.0]
 Apple M1, 1 CPU, 8 logical and 8 physical cores
 .NET SDK 8.0.100
   [Host]     : .NET 8.0.1 (8.0.123.58001), Arm64 RyuJIT AdvSIMD
   DefaultJob : .NET 8.0.1 (8.0.123.58001), Arm64 RyuJIT AdvSIMD
-
-
 ```
+
 | Method                               | Mean      | Error     | StdDev    | Min       | Max       | Ratio | RatioSD | Rank | Gen0      | Gen1      | Gen2     | Allocated | Alloc Ratio |
 |------------------------------------- |----------:|----------:|----------:|----------:|----------:|------:|--------:|-----:|----------:|----------:|---------:|----------:|------------:|
 | EFCoreExtras_BulkCreate_100BatchSize |  8.020 ms | 0.0392 ms | 0.0367 ms |  7.962 ms |  8.084 ms |  1.00 |    0.00 |    1 |  484.3750 |   93.7500 |        - |   2.96 MB |        1.00 |
