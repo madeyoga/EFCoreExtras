@@ -3,9 +3,9 @@ using Microsoft.EntityFrameworkCore;
 namespace EFCoreExtras.Tests;
 
 [TestClass]
-public class BulkCreateTest
+public class MySql_BulkCreateTest_StringId
 {
-    readonly List<Item> items = [];
+    readonly List<ItemString> items = [];
 
     TestDbContext _dbContext = null!;
     DbContextOptions<TestDbContext> options = null!;
@@ -15,22 +15,24 @@ public class BulkCreateTest
     {
         // Add more data
         items.AddRange([
-            new Item { Id = 1, Name = "A", },
-            new Item { Id = 2, Name = "B", },
-            new Item { Id = 3, Name = "C", },
-            new Item { Id = 4, Name = "D", },
-            new Item { Id = 5, Name = "E", },
-            new Item { Id = 6, Name = "F", },
-            new Item { Id = 7, Name = "G", },
-            new Item { Id = 8, Name = "H", },
-            new Item { Id = 9, Name = "I", },
+            new ItemString { Name = "A" },
+            new ItemString { Name = "B" },
+            new ItemString { Name = "C" },
+            new ItemString { Name = "D" },
+            new ItemString { Name = "E" },
+            new ItemString { Name = "F" },
+            new ItemString { Name = "G" },
+            new ItemString { Name = "H" },
+            new ItemString { Name = "I" }
         ]);
+
+        var connectionString = $"server=localhost;user=root;password=;database=efce_test_{Guid.NewGuid()}";
+        var serverVersion = ServerVersion.AutoDetect(connectionString);
         options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseSqlite("DataSource=:memory:") // Using an in-memory database for testing
+            .UseMySql(connectionString, serverVersion)
             .Options;
 
         _dbContext = new TestDbContext(options);
-        _dbContext.Database.OpenConnection();
         _dbContext.Database.EnsureCreated();
     }
 
@@ -38,21 +40,20 @@ public class BulkCreateTest
     public void Cleanup()
     {
         _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.CloseConnection();
         _dbContext.Dispose();
     }
 
     [TestMethod]
-    public async Task BulkCreateAsyncListOfItems()
+    public async Task BulkCreateAsync_ListOfItems_With_StringId()
     {
         await _dbContext.BulkCreateAsync(items, 5);
 
-        Assert.AreEqual(items.Count, _dbContext.Items.Count());
+        Assert.AreEqual(items.Count, _dbContext.ItemStrings.Count());
 
         var itemExists = true;
         foreach (var item in items)
         {
-            itemExists = itemExists && _dbContext.Items
+            itemExists = itemExists && _dbContext.ItemStrings
                 .Where(i => i.Id == item.Id)
                 .Where(i => i.Name == item.Name)
                 .Where(i => i.Quantity == item.Quantity)
@@ -62,16 +63,16 @@ public class BulkCreateTest
     }
 
     [TestMethod]
-    public void BulkCreateListOfItems()
+    public void BulkCreate_ListOfItems_With_StringId()
     {
         _dbContext.BulkCreate(items, 5);
 
-        Assert.AreEqual(items.Count, _dbContext.Items.Count());
+        Assert.AreEqual(items.Count, _dbContext.ItemStrings.Count());
 
         var itemExists = true;
         foreach (var item in items)
         {
-            itemExists = itemExists && _dbContext.Items
+            itemExists = itemExists && _dbContext.ItemStrings
                 .Where(i => i.Id == item.Id)
                 .Where(i => i.Name == item.Name)
                 .Where(i => i.Quantity == item.Quantity)

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 namespace EFCoreExtras.Tests;
 
 [TestClass]
-public class BulkCreateTest
+public class MySql_BulkCreateTest
 {
     readonly List<Item> items = [];
 
@@ -25,12 +25,14 @@ public class BulkCreateTest
             new Item { Id = 8, Name = "H", },
             new Item { Id = 9, Name = "I", },
         ]);
+
+        var connectionString = $"server=localhost;user=root;password=;database=efce_test_{Guid.NewGuid()}";
+        var serverVersion = ServerVersion.AutoDetect(connectionString);
         options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseSqlite("DataSource=:memory:") // Using an in-memory database for testing
+            .UseMySql(connectionString, serverVersion)
             .Options;
 
         _dbContext = new TestDbContext(options);
-        _dbContext.Database.OpenConnection();
         _dbContext.Database.EnsureCreated();
     }
 
@@ -38,7 +40,6 @@ public class BulkCreateTest
     public void Cleanup()
     {
         _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.CloseConnection();
         _dbContext.Dispose();
     }
 

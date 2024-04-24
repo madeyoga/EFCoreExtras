@@ -1,23 +1,10 @@
-namespace EFCoreExtras.Benchmarks;
+namespace EFCoreExtras.Tests;
 
-
-public class Employee
+public class Employee3
 {
     public int Id { get; set; }
     public string Name { get; set; } = null!;
-    public decimal Salary { get; set; } = 1000;
-
-    public Employee()
-    {
-
-    }
-
-    public Employee(int id, string name, decimal salary)
-    {
-        Id = id;
-        Name = name;
-        Salary = salary;
-    }
+    public decimal Salary { get; set; } = 1000m;
 }
 
 public class Employee10
@@ -57,4 +44,3 @@ public class Employee20
     public string? Languages { get; set; }
     public DateTime StartDate { get; set; }
 }
-
