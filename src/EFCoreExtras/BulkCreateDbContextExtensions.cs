@@ -6,6 +6,14 @@ namespace EFCoreExtras;
 
 public static class BulkCreateDbContextExtensions
 {
+    /// <summary>
+    /// Split (tracked or untracked) objects into batches and build and execute bulk insert query.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="context"></param>
+    /// <param name="objects">Tracked or untracked objects.</param>
+    /// <param name="batchSize">Number of objects included for each query.</param>
+    /// <returns></returns>
     public static async Task<int> BulkCreateAsync<T>(this DbContext context, List<T> objects, int batchSize = 100)
         where T : class
     {
@@ -23,6 +31,14 @@ public static class BulkCreateDbContextExtensions
         return affectedRows;
     }
 
+    /// <summary>
+    /// Build bulk insert query from the given tracked or untracked objects and execute the query.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="context"></param>
+    /// <param name="objects">Tracked or untracked objects.</param>
+    /// <returns>Number of affected rows.</returns>
+    /// <exception cref="ArgumentException"></exception>
     public static Task<int> BulkCreateAsync<T>(this DbContext context, List<T> objects)
         where T : class
     {
@@ -98,6 +114,14 @@ public static class BulkCreateDbContextExtensions
         foreach (var obj in objects)
         {
             queryBuilder.Append('(');
+
+            // Bulk insert tracked object only
+            // var entry = context.Entry(obj);
+
+            // if (entry.State != EntityState.Added)
+            // {
+            //     continue;
+            // }
 
             foreach (var property in properties)
             {

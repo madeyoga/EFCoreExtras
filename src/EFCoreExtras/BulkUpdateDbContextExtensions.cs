@@ -37,6 +37,16 @@ public static class BulkUpdateDbContextExtensions
         return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
     }
 
+    /// <summary>
+    /// Bulk update tracked given objects.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="context"></param>
+    /// <param name="objects">Tracked objects.</param>
+    /// <param name="properties"></param>
+    /// <param name="batchSize"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
     public static int BulkUpdate<T>(this DbContext context, List<T> objects, string[] properties, int batchSize = 100) 
         where T : class
     {
