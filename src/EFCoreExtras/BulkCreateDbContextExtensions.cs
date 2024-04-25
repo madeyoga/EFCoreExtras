@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using System.Text;
 
@@ -47,7 +48,8 @@ public static class BulkCreateDbContextExtensions
             throw new ArgumentException("The objects provided cannot be empty.");
         }
 
-        var result = CreateBulkInsertQuery(context, objects);
+        var queryBuilder = GetSqlBulkQueryBuilder(context);
+        var result = queryBuilder.CreateBulkInsertQuery(context, objects);
 
         return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
     }
@@ -77,76 +79,23 @@ public static class BulkCreateDbContextExtensions
             throw new ArgumentException("The objects provided cannot be empty.");
         }
 
-        var result = CreateBulkInsertQuery(context, objects);
+        var queryBuilder = GetSqlBulkQueryBuilder(context);
+        var result = queryBuilder.CreateBulkInsertQuery(context, objects);
 
         return context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
     }
 
-    public static CreateBulkInsertQueryResult CreateBulkInsertQuery<T>(this DbContext context, List<T> objects)
-        where T : class
+    public static ISqlQueryBuilder GetSqlBulkQueryBuilder(this DbContext context)
     {
-        if (objects.Count == 0)
+        var provider = context.GetService<QueryBuilderProvider>();
+
+        var queryBuilder = provider.GetQueryBuilder(context.Database.ProviderName!);
+
+        if (queryBuilder is null)
         {
-            throw new ArgumentException("The objects provided cannot be empty.");
+            throw new InvalidOperationException($"Not supported database provider: {context.Database.ProviderName}");
         }
 
-        var modelType = typeof(T);
-        IEntityType entityType = context.Model.FindEntityType(modelType)!;
-        string tableName = entityType.GetTableName()!;
-
-        IEnumerable<IProperty> properties = entityType.GetDeclaredProperties();
-
-        var propertyNames = properties
-            .Select(p => p.GetColumnName())
-            .ToList();
-
-        var queryBuilder = new StringBuilder();
-        queryBuilder.Append($"INSERT INTO {tableName} ({string.Join(',', propertyNames)}) VALUES ");
-
-        List<object> parameters = [];
-        int paramIndex = 0;
-        foreach (var obj in objects)
-        {
-            queryBuilder.Append('(');
-
-            foreach (var property in properties)
-            {
-                var propInfo = modelType.GetProperty(property.Name)!;
-                var propValue = propInfo.GetValue(obj, null);
-
-                if (property.ValueGenerated == ValueGenerated.OnAdd)
-                {
-                    // Auto generated property is not set to any value.
-                    if (propValue is null || propValue.Equals(0))
-                    {
-                        queryBuilder.Append("NULL, "); // sqlite does not support DEFAULT keyword.
-                    }
-                    else
-                    {
-                        parameters.Add(propValue);
-                        queryBuilder.Append($"{{{paramIndex++}}}, ");
-                    }
-                }
-                else
-                {
-                    if (propValue is null)
-                    {
-                        queryBuilder.Append("NULL, ");
-                    }
-                    else
-                    {
-                        parameters.Add(propValue);
-                        queryBuilder.Append($"{{{paramIndex++}}}, ");
-                    }
-                }
-            }
-
-            queryBuilder.Length -= 2; // Remove ", "
-            queryBuilder.Append("), ");
-        }
-
-        queryBuilder.Length -= 2; // Remove last 2 characters, a comma anda space.
-
-        return new CreateBulkInsertQueryResult(queryBuilder.ToString(), parameters);
+        return queryBuilder;
     }
 }

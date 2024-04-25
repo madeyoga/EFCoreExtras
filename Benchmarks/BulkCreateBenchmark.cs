@@ -2,6 +2,8 @@ using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Order;
 using BenchmarkDotNet.Mathematics;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace EFCoreExtras.Benchmarks;
 
@@ -11,7 +13,10 @@ namespace EFCoreExtras.Benchmarks;
 [RankColumn(NumeralSystem.Arabic)]
 public class BulkCreateBenchmark
 {
-    private List<Employee> _data = [];
+    private readonly List<Employee> _data = [];
+    private IServiceProvider _services = null!;
+    private IServiceScope _scope = null!;
+    private TestDbContext _context = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -25,69 +30,46 @@ public class BulkCreateBenchmark
             };
             _data.Add(employee);
         }
+
+        var serviceCollection = new ServiceCollection();
+        serviceCollection.AddEfCoreExtras();
+        serviceCollection.AddDbContext<TestDbContext>(o =>
+        {
+            o.UseSqlite("DataSource=:memory:");
+        });
+
+        _services = serviceCollection.BuildServiceProvider();
+        _scope = _services.CreateScope();
+
+        _context = _services.GetRequiredService<TestDbContext>();
+
+        _context.Database.OpenConnection();
+        _context.Database.EnsureCreated();
+
+        Console.WriteLine("GLOBAL SETUP!");
+    }
+
+    [GlobalCleanup]
+    public void Cleanup()
+    {
+        _context.Database.EnsureDeleted();
+        _context.Database.CloseConnection();
+        _context.Dispose();
+        _scope.Dispose();
+
+        Console.WriteLine("GLOBAL CLEANUP! HALLO!");
     }
 
     [Benchmark(Baseline = true)]
     public int EFCoreExtras_BulkCreate_100BatchSize()
     {
-        var options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseSqlite($"DataSource=:memory:")
-            .Options;
-
-        using var _dbContext = new TestDbContext(options);
-
-        _dbContext.Database.OpenConnection();
-        _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.EnsureCreated();
-
-        int writtenRows = _dbContext.BulkCreate(_data, batchSize: 100);
-        
-        _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.CloseConnection();
-
-        return writtenRows;
-    }
-    
-    [Benchmark]
-    public int EFCoreExtras_BulkCreate()
-    {
-        var options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseSqlite($"DataSource=:memory:")
-            .Options;
-
-        using var _dbContext = new TestDbContext(options);
-
-        _dbContext.Database.OpenConnection();
-        _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.EnsureCreated();
-
-        int writtenRows = _dbContext.BulkCreate(_data);
-        
-        _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.CloseConnection();
-
-        return writtenRows;
+        return _context.BulkCreate(_data, batchSize: 100);
     }
 
     [Benchmark]
     public int EFCore_SaveChanges()
     {
-        var options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseSqlite($"DataSource=:memory:")
-            .Options;
-
-        using var _dbContext = new TestDbContext(options);
-
-        _dbContext.Database.OpenConnection();
-        _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.EnsureCreated();
-
-        _dbContext.AddRange(_data);
-        int writtenRows = _dbContext.SaveChanges();
-        
-        _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.CloseConnection();
-
-        return writtenRows;
+        _context.AddRange(_data);
+        return _context.SaveChanges();
     }
 }
