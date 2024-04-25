@@ -7,17 +7,14 @@ public class QueryBuilderProvider
 {
     private readonly Dictionary<string, QueryBuilderScheme> _schemes = new(StringComparer.Ordinal);
     private readonly object _lock = new();
-    private readonly IServiceProvider _serviceProvider;
 
-    public QueryBuilderProvider(IServiceProvider serviceProvider)
+    public QueryBuilderProvider()
     {
         AddQueryBuilderScheme(new QueryBuilderScheme("Microsoft.EntityFrameworkCore.Sqlite", typeof(SqlBulkQueryBuilder)));
         AddQueryBuilderScheme(new QueryBuilderScheme("Npgsql.EntityFrameworkCore.PostgreSQL", typeof(SqlBulkQueryBuilder)));
         AddQueryBuilderScheme(new QueryBuilderScheme("MySql.EntityFrameworkCore", typeof(SqlBulkQueryBuilder)));
         AddQueryBuilderScheme(new QueryBuilderScheme("Microsoft.EntityFrameworkCore.SqlServer", typeof(SqlBulkQueryBuilder)));
         AddQueryBuilderScheme(new QueryBuilderScheme("Pomelo.EntityFrameworkCore.MySql", typeof(SqlBulkQueryBuilder)));
-
-        _serviceProvider = serviceProvider;
     }
 
     public void AddQueryBuilderScheme(QueryBuilderScheme scheme)
@@ -39,13 +36,24 @@ public class QueryBuilderProvider
         return Task.FromResult(contains ? scheme : null);
     }
 
-    public async Task<ISqlQueryBuilder> GetQueryBuilderAsync(string name)
+    public async Task<ISqlQueryBuilder> GetQueryBuilderAsync(IServiceProvider serviceProvider, string name)
     {
         var scheme = await GetSchemeAsync(name) ?? throw new ArgumentException($"Cannot find query builder with name: {name}");
 
-        var service = _serviceProvider.GetRequiredService(scheme.QueryBuilderType) as ISqlQueryBuilder;
+        var instance = (serviceProvider.GetService(scheme.QueryBuilderType) ?? 
+            ActivatorUtilities.CreateInstance(serviceProvider, scheme.QueryBuilderType))
+            as ISqlQueryBuilder;
 
-        return service!;
+        return instance!;
+    }
+
+    public async Task<ISqlQueryBuilder> CreateQueryBuilderAsync(string name)
+    {
+        var scheme = await GetSchemeAsync(name) ?? throw new ArgumentException($"Cannot find query builder with name: {name}");
+
+        var instance = Activator.CreateInstance(scheme.QueryBuilderType) as ISqlQueryBuilder;
+
+        return instance!;
     }
 }
 
