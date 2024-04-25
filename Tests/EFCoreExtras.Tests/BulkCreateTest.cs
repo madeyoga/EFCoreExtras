@@ -15,7 +15,7 @@ public class BulkCreateTest
     {
         // Add more data
         items.AddRange([
-            new Item { Id = 1, Name = "A", },
+            new Item { Id = 11, Name = "A", },
             new Item { Id = 2, Name = "B", },
             new Item { Id = 3, Name = "C", },
             new Item { Id = 4, Name = "D", },
