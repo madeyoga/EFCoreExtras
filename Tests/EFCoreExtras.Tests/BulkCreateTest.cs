@@ -41,6 +41,7 @@ public class BulkCreateTest
 
         _dbContext = scope.ServiceProvider.GetService<TestDbContext>()!;
         _dbContext.Database.OpenConnection();
+        _dbContext.Database.EnsureDeleted();
         _dbContext.Database.EnsureCreated();
     }
 
