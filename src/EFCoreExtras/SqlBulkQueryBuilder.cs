@@ -136,11 +136,10 @@ public class SqlBulkQueryBuilder : ISqlQueryBuilder
                 continue;
             }
 
-            queryBuilder.Append($"{fieldName} = CASE {whenQuery} ELSE {fieldName} END");
-
-            if (i < properties.Length - 1)
-                queryBuilder.Append(", ");
+            queryBuilder.Append($"{fieldName} = CASE {whenQuery} ELSE {fieldName} END, ");
         }
+
+        queryBuilder.Length -= 2;
 
         queryBuilder.Append($" WHERE {primaryKeyPropertyName} IN ({string.Join(',', ids)})");
 

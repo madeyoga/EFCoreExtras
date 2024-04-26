@@ -33,6 +33,14 @@ public static class BulkCreateDbContextExtensions
         return affectedRows;
     }
 
+    /// <summary>
+    /// Split (tracked or untracked) objects into batches and build and execute bulk insert query.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="context"></param>
+    /// <param name="objects">Tracked or untracked objects.</param>
+    /// <param name="batchSize">Number of objects included for each query.</param>
+    /// <returns>Number of written rows.</returns>
     public static int BulkCreate<T>(this DbContext context, List<T> objects, int batchSize = 100)
         where T : class
     {

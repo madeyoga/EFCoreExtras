@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using System.Linq.Expressions;
 
 namespace EFCoreExtras.Tests;
 
@@ -82,6 +83,34 @@ public class BulkUpdateTests
     }
 
     [TestMethod]
+    public async Task BulkUpdateAsyncListOfItems_Typed()
+    {
+        var items = _dbContext.Items.ToList();
+
+        foreach (var item in items)
+        {
+            item.Name = $"{item.Name} {item.Id}";
+            item.Quantity += 10;
+        }
+
+        await _dbContext.BulkUpdateAsync(items, [
+            item => item.Name,
+            item => item.Quantity,
+        ]);
+
+        var updated = true;
+
+        foreach (var item in items)
+        {
+            updated = updated && _dbContext.Items
+                .Where(i => i.Name == item.Name && i.Quantity == item.Quantity)
+                .Any();
+        }
+
+        Assert.IsTrue(updated);
+    }
+
+    [TestMethod]
     public void BulkUpdateListOfItems()
     {
         var items = _dbContext.Items.ToList();
@@ -97,6 +126,34 @@ public class BulkUpdateTests
         var updated = true;
 
         foreach(var item in items)
+        {
+            updated = updated && _dbContext.Items
+                .Where(i => i.Name == item.Name && i.Quantity == item.Quantity)
+                .Any();
+        }
+
+        Assert.IsTrue(updated);
+    }
+
+    [TestMethod]
+    public void BulkUpdateListOfItems_Typed()
+    {
+        var items = _dbContext.Items.ToList();
+
+        foreach (var item in items)
+        {
+            item.Name = $"{item.Name} {item.Id}";
+            item.Quantity += 10;
+        }
+
+        _dbContext.BulkUpdate(items, [
+            item => item.Name,
+            item => item.Quantity,
+        ]);
+
+        var updated = true;
+
+        foreach (var item in items)
         {
             updated = updated && _dbContext.Items
                 .Where(i => i.Name == item.Name && i.Quantity == item.Quantity)
