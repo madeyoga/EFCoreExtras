@@ -1,7 +1,8 @@
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Order;
 using BenchmarkDotNet.Mathematics;
+using BenchmarkDotNet.Order;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EFCoreExtras.Benchmarks;
 
@@ -11,12 +12,19 @@ namespace EFCoreExtras.Benchmarks;
 [RankColumn(NumeralSystem.Arabic)]
 public class BulkCreateBenchmark
 {
-    private List<Employee> _data = [];
+    private readonly List<Employee> _data = [];
+    private IServiceProvider _services = null!;
+
+    // private IServiceScope _scope = null!;
+    // private TestDbContext _context = null!;
+
+    [Params(1000, 2000, 4000)]
+    public int NumberOfItems {get;set;}
 
     [GlobalSetup]
     public void Setup()
     {
-        for (int i = 0; i < 2000; i++)
+        for (int i = 0; i < NumberOfItems; i++)
         {
             var employee = new Employee
             {
@@ -25,69 +33,71 @@ public class BulkCreateBenchmark
             };
             _data.Add(employee);
         }
+
+        var serviceCollection = new ServiceCollection();
+        serviceCollection.AddEfCoreExtras();
+        serviceCollection.AddDbContext<TestDbContext>(o =>
+        {
+            o.UseSqlite("DataSource=:memory:");
+        });
+
+        _services = serviceCollection.BuildServiceProvider();
+    }
+
+    // [IterationSetup]
+    // public void IterationSetup()
+    // {
+    //     _scope = _services.CreateScope();
+    //     _context = _scope.ServiceProvider.GetRequiredService<TestDbContext>();
+
+    //     _context.Database.OpenConnection();
+    //     _context.Database.EnsureCreated();
+    // }
+
+    // [IterationCleanup]
+    // public void IterationCleanup()
+    // {
+    //     _context.Database.EnsureDeleted();
+    //     _context.Database.CloseConnection();
+
+    //     _context.Dispose();
+    //     _scope.Dispose();
+    // }
+
+    [Benchmark]
+    public int EFCore_SaveChanges()
+    {
+       using var scope = _services.CreateScope();
+
+       using var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+
+       context.Database.OpenConnection();
+       context.Database.EnsureCreated();
+
+       context.AddRange(_data);
+       int affectedRows = context.SaveChanges();
+
+       context.Database.EnsureDeleted();
+       context.Database.CloseConnection();
+
+       return affectedRows;
     }
 
     [Benchmark(Baseline = true)]
     public int EFCoreExtras_BulkCreate_100BatchSize()
     {
-        var options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseSqlite($"DataSource=:memory:")
-            .Options;
+        using var scope = _services.CreateScope();
 
-        using var _dbContext = new TestDbContext(options);
+        using var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
 
-        _dbContext.Database.OpenConnection();
-        _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.EnsureCreated();
+        context.Database.OpenConnection();
+        context.Database.EnsureCreated();
 
-        int writtenRows = _dbContext.BulkCreate(_data, batchSize: 100);
-        
-        _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.CloseConnection();
+        int affectedRows = context.BulkCreate(_data, batchSize: 100);
 
-        return writtenRows;
-    }
-    
-    [Benchmark]
-    public int EFCoreExtras_BulkCreate()
-    {
-        var options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseSqlite($"DataSource=:memory:")
-            .Options;
+        context.Database.EnsureDeleted();
+        context.Database.CloseConnection();
 
-        using var _dbContext = new TestDbContext(options);
-
-        _dbContext.Database.OpenConnection();
-        _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.EnsureCreated();
-
-        int writtenRows = _dbContext.BulkCreate(_data);
-        
-        _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.CloseConnection();
-
-        return writtenRows;
-    }
-
-    [Benchmark]
-    public int EFCore_SaveChanges()
-    {
-        var options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseSqlite($"DataSource=:memory:")
-            .Options;
-
-        using var _dbContext = new TestDbContext(options);
-
-        _dbContext.Database.OpenConnection();
-        _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.EnsureCreated();
-
-        _dbContext.AddRange(_data);
-        int writtenRows = _dbContext.SaveChanges();
-        
-        _dbContext.Database.EnsureDeleted();
-        _dbContext.Database.CloseConnection();
-
-        return writtenRows;
+        return affectedRows;
     }
 }

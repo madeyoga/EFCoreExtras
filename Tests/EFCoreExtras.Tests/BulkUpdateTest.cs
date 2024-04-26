@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using System.Linq.Expressions;
 
 namespace EFCoreExtras.Tests;
 
@@ -8,7 +10,8 @@ public class BulkUpdateTests
     readonly List<Item> items = [];
 
     TestDbContext _dbContext = null!;
-    DbContextOptions<TestDbContext> options = null!;
+    IServiceProvider services = null!;
+    IServiceScope scope = null!;
 
     [TestInitialize]
     public void Setup()
@@ -24,11 +27,19 @@ public class BulkUpdateTests
             new Item { Id = 8, Name = "H", },
             new Item { Id = 9, Name = "I", },
         ]);
-        options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseSqlite("DataSource=:memory:") // Using an in-memory database for testing
-            .Options;
 
-        _dbContext = new TestDbContext(options);
+        var serviceCollection = new ServiceCollection();
+
+        serviceCollection.AddEfCoreExtras();
+        serviceCollection.AddDbContext<TestDbContext>(o =>
+        {
+            o.UseSqlite("DataSource=:memory:");
+        });
+
+        services = serviceCollection.BuildServiceProvider();
+        scope = services.CreateScope();
+
+        _dbContext = scope.ServiceProvider.GetService<TestDbContext>()!;
         _dbContext.Database.OpenConnection();
         _dbContext.Database.EnsureCreated();
 
@@ -42,6 +53,8 @@ public class BulkUpdateTests
         _dbContext.Database.EnsureDeleted();
         _dbContext.Database.CloseConnection();
         _dbContext.Dispose();
+
+        scope.Dispose();
     }
 
     [TestMethod]
@@ -70,6 +83,34 @@ public class BulkUpdateTests
     }
 
     [TestMethod]
+    public async Task BulkUpdateAsyncListOfItems_Typed()
+    {
+        var items = _dbContext.Items.ToList();
+
+        foreach (var item in items)
+        {
+            item.Name = $"{item.Name} {item.Id}";
+            item.Quantity += 10;
+        }
+
+        await _dbContext.BulkUpdateAsync(items, [
+            item => item.Name,
+            item => item.Quantity,
+        ]);
+
+        var updated = true;
+
+        foreach (var item in items)
+        {
+            updated = updated && _dbContext.Items
+                .Where(i => i.Name == item.Name && i.Quantity == item.Quantity)
+                .Any();
+        }
+
+        Assert.IsTrue(updated);
+    }
+
+    [TestMethod]
     public void BulkUpdateListOfItems()
     {
         var items = _dbContext.Items.ToList();
@@ -85,6 +126,34 @@ public class BulkUpdateTests
         var updated = true;
 
         foreach(var item in items)
+        {
+            updated = updated && _dbContext.Items
+                .Where(i => i.Name == item.Name && i.Quantity == item.Quantity)
+                .Any();
+        }
+
+        Assert.IsTrue(updated);
+    }
+
+    [TestMethod]
+    public void BulkUpdateListOfItems_Typed()
+    {
+        var items = _dbContext.Items.ToList();
+
+        foreach (var item in items)
+        {
+            item.Name = $"{item.Name} {item.Id}";
+            item.Quantity += 10;
+        }
+
+        _dbContext.BulkUpdate(items, [
+            item => item.Name,
+            item => item.Quantity,
+        ]);
+
+        var updated = true;
+
+        foreach (var item in items)
         {
             updated = updated && _dbContext.Items
                 .Where(i => i.Name == item.Name && i.Quantity == item.Quantity)

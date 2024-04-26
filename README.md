@@ -56,6 +56,8 @@ foreach (var employee in employees)
 }
 
 await context.BulkUpdateAsync(employees, ["Name", "Salary"]);
+// Or
+await context.BulkUpdateAsync(employees, [e => e.Name, e => e.Salary]);
 ```
 
 ```sql

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EFCoreExtras.Tests;
 
@@ -8,7 +9,8 @@ public class BulkCreateTest_StringId
     readonly List<ItemString> items = [];
 
     TestDbContext _dbContext = null!;
-    DbContextOptions<TestDbContext> options = null!;
+    IServiceProvider services = null!;
+    IServiceScope scope = null!;
 
     [TestInitialize]
     public void Setup()
@@ -26,11 +28,18 @@ public class BulkCreateTest_StringId
             new ItemString { Name = "I" }
         ]);
 
-        options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseSqlite("DataSource=:memory:")
-            .Options;
+        var serviceCollection = new ServiceCollection();
 
-        _dbContext = new TestDbContext(options);
+        serviceCollection.AddEfCoreExtras();
+        serviceCollection.AddDbContext<TestDbContext>(o =>
+        {
+            o.UseSqlite("DataSource=:memory:");
+        });
+
+        services = serviceCollection.BuildServiceProvider();
+        scope = services.CreateScope();
+
+        _dbContext = scope.ServiceProvider.GetService<TestDbContext>()!;
         _dbContext.Database.OpenConnection();
         _dbContext.Database.EnsureCreated();
     }
@@ -41,6 +50,8 @@ public class BulkCreateTest_StringId
         _dbContext.Database.EnsureDeleted();
         _dbContext.Database.CloseConnection();
         _dbContext.Dispose();
+
+        scope.Dispose();
     }
 
     [TestMethod]

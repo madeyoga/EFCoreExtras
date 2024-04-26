@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EFCoreExtras.Tests;
 
@@ -8,7 +9,8 @@ public class MySql_BulkUpdateTests
     readonly List<Item> items = [];
 
     TestDbContext _dbContext = null!;
-    DbContextOptions<TestDbContext> options = null!;
+    IServiceProvider services = null!;
+    IServiceScope scope = null!;
 
     [TestInitialize]
     public void Setup()
@@ -26,11 +28,19 @@ public class MySql_BulkUpdateTests
         ]);
         var connectionString = $"server=localhost;user=root;password=;database=efce_test_{Guid.NewGuid()}";
         var serverVersion = ServerVersion.AutoDetect(connectionString);
-        options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseMySql(connectionString, serverVersion)
-            .Options;
 
-        _dbContext = new TestDbContext(options);
+        var serviceCollection = new ServiceCollection();
+
+        serviceCollection.AddEfCoreExtras();
+        serviceCollection.AddDbContext<TestDbContext>(o =>
+        {
+            o.UseMySql(connectionString, serverVersion);
+        });
+
+        services = serviceCollection.BuildServiceProvider();
+        scope = services.CreateScope();
+
+        _dbContext = scope.ServiceProvider.GetService<TestDbContext>()!;
         _dbContext.Database.EnsureCreated();
 
         _dbContext.Items.AddRange(items);
@@ -42,6 +52,8 @@ public class MySql_BulkUpdateTests
     {
         _dbContext.Database.EnsureDeleted();
         _dbContext.Dispose();
+
+        scope.Dispose();
     }
 
     [TestMethod]
