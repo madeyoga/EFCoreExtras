@@ -86,61 +86,54 @@ public class SqlBulkQueryBuilder : ISqlQueryBuilder
             .Properties
             .Select(x => x.Name)
             .First();
+        var pkProp = modelType.GetProperty(primaryKeyPropertyName)!;
+
+        Dictionary<string, StringBuilder> cache = [];
+        List<PropertyInfo> propertyInfos = [];
+        foreach (var propName in properties)
+        {
+            var propInfo = modelType.GetProperty(propName) ?? throw new ArgumentException($"The property '{propName}' does not exist in the type '{modelType.FullName}'.");
+            propertyInfos.Add(propInfo);
+            cache[propName] = new StringBuilder();
+        }
 
         var queryBuilder = new StringBuilder();
         queryBuilder.Append($"UPDATE {tableName} SET ");
-
-        PropertyInfo pkProp = modelType.GetProperty(primaryKeyPropertyName)!;
-        HashSet<string> ids = [];
+        List<string> ids = [];
         List<object> parameters = [];
         int paramIndex = 0;
-        for (int i = 0; i < properties.Length; i++)
+        foreach (var obj in objects)
         {
-            var fieldName = properties[i];
-            var fieldProp = modelType.GetProperty(fieldName) ?? throw new ArgumentException($"The property '{fieldName}' does not exist in the type '{modelType.FullName}'.");
-            var whenQueryBuilder = new StringBuilder();
+            var entry = context.Entry(obj);
 
-            foreach (var obj in objects)
+            var pkValue = pkProp.GetValue(obj, null)!;
+            ids.Add(pkValue.ToString()!);
+
+            foreach (var prop in propertyInfos)
             {
-                var entry = context.Entry(obj);
+                var stringBuilder = cache[prop.Name];
+                stringBuilder.Append($"WHEN {primaryKeyPropertyName} = {pkValue} ");
 
-                // Skip if given property name is not modified.
-                if (!entry.Properties.Where(p => p.Metadata.Name == fieldName && p.IsModified).Any())
-                {
-                    continue;
-                }
-
-                var pkValue = pkProp.GetValue(obj, null)!;
-
-                whenQueryBuilder.Append($"WHEN {primaryKeyPropertyName} = {pkValue} ");
-
-                var fieldValue = fieldProp.GetValue(obj, null);
+                var fieldValue = prop.GetValue(obj, null);
 
                 if (fieldValue is null)
                 {
-                    whenQueryBuilder.Append("THEN NULL ");
+                    stringBuilder.Append("THEN NULL ");
                 }
                 else
                 {
-                    whenQueryBuilder.Append($"THEN {{{paramIndex++}}} ");
+                    stringBuilder.Append($"THEN {{{paramIndex++}}} ");
                     parameters.Add(fieldValue);
                 }
-
-                ids.Add(pkValue.ToString()!);
             }
+        }
 
-            string whenQuery = whenQueryBuilder.ToString();
-
-            if (string.IsNullOrEmpty(whenQuery))
-            {
-                continue;
-            }
-
-            queryBuilder.Append($"{fieldName} = CASE {whenQuery} ELSE {fieldName} END, ");
+        foreach (var key in cache.Keys)
+        {
+            queryBuilder.Append($"{key} = CASE {cache[key].ToString()} ELSE {key} END, ");
         }
 
         queryBuilder.Length -= 2;
-
         queryBuilder.Append($" WHERE {primaryKeyPropertyName} IN ({string.Join(',', ids)})");
 
         return new CreateBulkUpdateQueryResult(queryBuilder.ToString(), parameters, ids);
