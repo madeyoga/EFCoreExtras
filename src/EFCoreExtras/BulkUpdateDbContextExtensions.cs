@@ -91,17 +91,6 @@ public static class BulkUpdateDbContextExtensions
         return BulkUpdate(context, objects, GetPropertyNames(expressions), batchSize);
     }
 
-    public static int BulkUpdate2<T>(this DbContext context, List<T> objects, int batchSize = 100)
-        where T : class
-    {
-        Expression<Func<SetPropertyCalls<T>, SetPropertyCalls<T>>> setPropertyCalls = null;
-
-        
-
-        return context.Set<T>()
-            .ExecuteUpdate(setPropertyCalls);
-    }
-
     private static string[] GetPropertyNames<T>(Expression<Func<T, object>>[] expressions)
     {
         List<string> properties = [];
