@@ -3,13 +3,14 @@ using BenchmarkDotNet.Mathematics;
 using BenchmarkDotNet.Order;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using System.Net;
 
 namespace EFCoreExtras.Benchmarks;
 
 [MemoryDiagnoser]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
 [RankColumn(NumeralSystem.Arabic)]
-public class BulkUpdateBenchmark
+public class BulkUpdate9ColumnsBenchmark
 {
     private readonly List<Employee10> _data = [];
     private IServiceProvider _services = null!;
@@ -19,9 +20,6 @@ public class BulkUpdateBenchmark
 
     [Params(4000)]
     public int NumberOfItems { get; set; }
-
-    //[Params(10, 25, 50, 100)]
-    //public int BatchSize { get; set; }
 
     [GlobalSetup]
     public void Setup()
@@ -67,8 +65,15 @@ public class BulkUpdateBenchmark
 
         foreach (var item in _data)
         {
-            item.Name = $"{item.Name}__{item.Id}";
-            item.Salary += 1000;
+            item.Name = $"{item.Name}__{item.Id}__New";
+            item.Age += 1;
+            item.Email = "test@newemail.com";
+            item.Address = "New Address";
+            item.DateOfBirth = DateTime.UtcNow;
+            item.IsActive = true;
+            item.Salary += 200;
+            item.Department = "NewSoftware";
+            item.Position = "NewJunior";
         }
     }
 
@@ -85,21 +90,22 @@ public class BulkUpdateBenchmark
     [Benchmark]
     public int EFCoreExtras_BulkUpdate()
     {
-        return _context.BulkUpdate(_data, ["Name", "Salary"], 30);
-    }
-
-    [Benchmark]
-    public int EFCore_SaveChanges()
-    {
-        return _context.SaveChanges();
+        return _context.BulkUpdate(_data, [
+            "Name",
+            "Age",
+            "Email",
+            "Address",
+            "DateOfBirth",
+            "IsActive",
+            "Salary",
+            "Department",
+            "Position",
+        ]);
     }
 
     [Benchmark(Baseline = true)]
-    public int EFCore_ExecuteUpdate()
+    public int EFCore_SaveChanges()
     {
-        return _context.Employees10.ExecuteUpdate(p =>
-            p.SetProperty(e => e.Name, e => e.Name + "__" + e.Id)
-             .SetProperty(e => e.Salary, e => e.Salary + 1000)
-        );
+        return _context.SaveChanges();
     }
 }

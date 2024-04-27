@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 using System.Linq.Expressions;
 
 namespace EFCoreExtras;
@@ -29,7 +30,7 @@ public static class BulkUpdateDbContextExtensions
         {
             var result = queryBuilder.CreateBulkUpdateQuery(context, objects, properties);
             
-            if (result.Ids.Count > 0)
+            if (result.Ids.Any())
             {
                 affectedRows += await context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
             }
@@ -73,7 +74,7 @@ public static class BulkUpdateDbContextExtensions
         {
             var result = queryBuilder.CreateBulkUpdateQuery(context, batch, properties);
 
-            if (result.Ids.Count > 0)
+            if (result.Ids.Any())
             {
                 affectedRows += context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
             }
