@@ -7,6 +7,7 @@ namespace EFCoreExtras.Tests;
 public class BulkCreateTest
 {
     readonly List<Item> items = [];
+    readonly List<Item> itemsAutoIncrement = [];
 
     TestDbContext _dbContext = null!;
     IServiceProvider services = null!;
@@ -26,6 +27,15 @@ public class BulkCreateTest
             new Item { Id = 7, Name = "G", },
             new Item { Id = 8, Name = "H", },
             new Item { Id = 9, Name = "I", },
+        ]);
+
+        // Auto increment Id
+        itemsAutoIncrement.AddRange([
+            new Item { Name = "A", },
+            new Item { Name = "B", },
+            new Item { Name = "C", },
+            new Item { Name = "D", },
+            new Item { Name = "E", },
         ]);
 
         var serviceCollection = new ServiceCollection();
@@ -83,6 +93,44 @@ public class BulkCreateTest
 
         var itemExists = true;
         foreach (var item in items)
+        {
+            itemExists = itemExists && _dbContext.Items
+                .Where(i => i.Id == item.Id)
+                .Where(i => i.Name == item.Name)
+                .Where(i => i.Quantity == item.Quantity)
+                .Any();
+        }
+        Assert.IsTrue(itemExists);
+    }
+
+    [TestMethod]
+    public async Task BulkCreateAsyncListOfItems_AutoIncrement()
+    {
+        await _dbContext.BulkCreateAsync(itemsAutoIncrement, 5);
+
+        Assert.AreEqual(itemsAutoIncrement.Count, _dbContext.Items.Count());
+
+        var itemExists = true;
+        foreach (var item in itemsAutoIncrement)
+        {
+            itemExists = itemExists && _dbContext.Items
+                .Where(i => i.Id == item.Id)
+                .Where(i => i.Name == item.Name)
+                .Where(i => i.Quantity == item.Quantity)
+                .Any();
+        }
+        Assert.IsTrue(itemExists);
+    }
+
+    [TestMethod]
+    public void BulkCreateListOfItems_AutoIncrement()
+    {
+        _dbContext.BulkCreate(itemsAutoIncrement, 5);
+
+        Assert.AreEqual(itemsAutoIncrement.Count, _dbContext.Items.Count());
+
+        var itemExists = true;
+        foreach (var item in itemsAutoIncrement)
         {
             itemExists = itemExists && _dbContext.Items
                 .Where(i => i.Id == item.Id)

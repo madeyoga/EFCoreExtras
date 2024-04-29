@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using System.Reflection;
 
 namespace EFCoreExtras;
 
@@ -22,12 +23,10 @@ public static class BulkCreateDbContextExtensions
 
         var batches = ModelSelection.SplitIntoBatches(objects, batchSize);
 
-        var queryBuilder = GetSqlBulkQueryBuilder(context);
-
+        var bulkService = GetBulkOperationService(context);
         foreach (var batch in batches)
         {
-            var result = queryBuilder.CreateBulkInsertQuery(context, batch);
-            affectedRows += await context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
+            affectedRows += await bulkService.ExecuteBulkInsertAsync(context, batch);
         }
 
         return affectedRows;
@@ -50,22 +49,20 @@ public static class BulkCreateDbContextExtensions
         
         var batches = ModelSelection.SplitIntoBatches(objects, batchSize);
 
-        var queryBuilder = GetSqlBulkQueryBuilder(context);
-
+        var bulkService = GetBulkOperationService(context);
         foreach (var batch in batches)
         {
-            var result = queryBuilder.CreateBulkInsertQuery(context, batch);
-            affectedRows += context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
+            affectedRows += bulkService.ExecuteBulkInsert(context, batch);
         }
 
         return affectedRows;
     }
 
-    public static ISqlQueryBuilder GetSqlBulkQueryBuilder(this DbContext context)
+    internal static IBulkOperationService GetBulkOperationService(this DbContext context)
     {
-        var provider = context.GetService<QueryBuilderProvider>();
+        var provider = context.GetService<BulkOperationProvider>();
 
-        var queryBuilder = provider.GetQueryBuilder(context.Database.ProviderName!);
+        var queryBuilder = provider.GetBulkOperationService(context.Database.ProviderName!);
 
         if (queryBuilder is null)
         {

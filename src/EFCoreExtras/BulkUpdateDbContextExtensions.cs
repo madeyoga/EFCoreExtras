@@ -24,11 +24,11 @@ public static class BulkUpdateDbContextExtensions
 
         var batches = ModelSelection.SplitIntoBatches(objects, batchSize);
 
-        var queryBuilder = context.GetSqlBulkQueryBuilder();
+        var bulkService = context.GetBulkOperationService();
 
         foreach (var batch in batches)
         {
-            var result = queryBuilder.CreateBulkUpdateQuery(context, objects, properties);
+            var result = bulkService.CreateBulkUpdateQuery(context, objects, properties);
             
             if (result.Ids.Any())
             {
@@ -68,11 +68,11 @@ public static class BulkUpdateDbContextExtensions
         int affectedRows = 0;
 
         var batches = ModelSelection.SplitIntoBatches(objects, batchSize);
-        var queryBuilder = context.GetSqlBulkQueryBuilder();
+        var bulkService = context.GetBulkOperationService();
 
         foreach (var batch in batches)
         {
-            var result = queryBuilder.CreateBulkUpdateQuery(context, batch, properties);
+            var result = bulkService.CreateBulkUpdateQuery(context, batch, properties);
 
             if (result.Ids.Any())
             {

@@ -5,9 +5,9 @@ using System.Text;
 
 namespace EFCoreExtras;
 
-public class SqlBulkQueryBuilder : ISqlQueryBuilder
+public class RelationalBulkOperationService : IBulkOperationService
 {
-    public CreateBulkInsertQueryResult CreateBulkInsertQuery<T>(DbContext context, List<T> objects)
+    public BulkInsertQueryResult CreateBulkInsertQuery<T>(DbContext context, List<T> objects)
         where T : class
     {
         if (objects.Count == 0)
@@ -72,10 +72,10 @@ public class SqlBulkQueryBuilder : ISqlQueryBuilder
 
         queryBuilder.Length -= 2; // Remove last 2 characters, a comma anda space.
 
-        return new CreateBulkInsertQueryResult(queryBuilder.ToString(), parameters);
+        return new BulkInsertQueryResult(queryBuilder.ToString(), [..parameters], "Id");
     }
 
-    public CreateBulkUpdateQueryResult CreateBulkUpdateQuery<T>(DbContext context, List<T> objects, string[] properties)
+    public BulkUpdateQueryResult CreateBulkUpdateQuery<T>(DbContext context, List<T> objects, string[] properties)
         where T : class
     {
         var modelType = typeof(T);
@@ -136,6 +136,18 @@ public class SqlBulkQueryBuilder : ISqlQueryBuilder
         queryBuilder.Length -= 2;
         queryBuilder.Append($" WHERE {primaryKeyPropertyName} IN ({string.Join(',', ids)})");
 
-        return new CreateBulkUpdateQueryResult(queryBuilder.ToString(), parameters, ids);
+        return new BulkUpdateQueryResult(queryBuilder.ToString(), parameters, ids);
+    }
+
+    public int ExecuteBulkInsert<T>(DbContext context, List<T> objects) where T : class
+    {
+        var result = CreateBulkInsertQuery(context, objects);
+        return context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
+    }
+
+    public Task<int> ExecuteBulkInsertAsync<T>(DbContext context, List<T> objects) where T : class
+    {
+        var result = CreateBulkInsertQuery(context, objects);
+        return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
     }
 }
