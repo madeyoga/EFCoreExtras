@@ -150,10 +150,43 @@ public class SqliteBulkOperationService : IBulkOperationService
         where T : class
     {
         var result = CreateBulkInsertQuery(context, objects);
+        //return context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
 
+        int affectedRows = 0;
         var entityType = typeof(T);
         var pkProp = entityType.GetProperty(result.PrimaryKeyPropertyName)!;
         var pkType = pkProp.PropertyType;
+
+        if (pkType == typeof(int))
+        {
+            var ids = context.Database.SqlQueryRaw<int>(result.Query, result.Parameters).ToArray();
+            SetPkValues(pkProp, ids, objects);
+            affectedRows += ids.Length;
+        }
+        else if (pkType == typeof(long))
+        {
+            var ids = context.Database.SqlQueryRaw<long>(result.Query, result.Parameters).ToArray();
+            SetPkValues(pkProp, ids, objects);
+            affectedRows += ids.Length;
+        }
+        else if (pkType == typeof(string))
+        {
+            var ids = context.Database.SqlQueryRaw<string>(result.Query, result.Parameters).ToArray();
+            SetPkValues(pkProp, ids, objects);
+            affectedRows += ids.Length;
+        }
+        else if (pkType == typeof(Guid))
+        {
+            var ids = context.Database.SqlQueryRaw<Guid>(result.Query, result.Parameters).ToArray();
+            SetPkValues(pkProp, ids, objects);
+            affectedRows += ids.Length;
+        }
+        else
+        {
+            // pkType not supported.
+        }
+
+        return affectedRows;
 
         //var method = typeof(RelationalDatabaseFacadeExtensions)
         //    .GetMethod("SqlQueryRaw", BindingFlags.Static | BindingFlags.Public)!
@@ -167,86 +200,51 @@ public class SqliteBulkOperationService : IBulkOperationService
         //    .GetMethod("SetPkValues", BindingFlags.Static | BindingFlags.NonPublic)!
         //    .MakeGenericMethod(typeof(T), pkType);
         //setPkValuesMethod.Invoke(null, [pkProp, ids, batch]);
-
-        int affectedRows = 0;
-
-        if (pkType == typeof(int))
-        {
-            var ids = context.Database.SqlQueryRaw<int>(result.Query, result.Parameters.ToArray()).ToArray();
-            SetPkValues(pkProp, ids, objects);
-            affectedRows += ids.Length;
-        }
-        else if (pkType == typeof(long))
-        {
-            var ids = context.Database.SqlQueryRaw<long>(result.Query, result.Parameters.ToArray()).ToArray();
-            SetPkValues(pkProp, ids, objects);
-            affectedRows += ids.Length;
-        }
-        else if (pkType == typeof(string))
-        {
-            var ids = context.Database.SqlQueryRaw<string>(result.Query, result.Parameters.ToArray()).ToArray();
-            SetPkValues(pkProp, ids, objects);
-            affectedRows += ids.Length;
-        }
-        else if (pkType == typeof(Guid))
-        {
-            var ids = context.Database.SqlQueryRaw<Guid>(result.Query, result.Parameters.ToArray()).ToArray();
-            SetPkValues(pkProp, ids, objects);
-            affectedRows += ids.Length;
-        }
-        else
-        {
-            // pkType not supported.
-        }
-
-        return affectedRows;
     }
 
-    public async Task<int> ExecuteBulkInsertAsync<T>(DbContext context, List<T> objects) where T : class
+    public Task<int> ExecuteBulkInsertAsync<T>(DbContext context, List<T> objects) where T : class
     {
         var result = CreateBulkInsertQuery(context, objects);
-        var entityType = typeof(T);
-        var pkProp = entityType.GetProperty(result.PrimaryKeyPropertyName)!;
-        var pkType = pkProp.PropertyType;
-
-        int affectedRows = 0;
-
-        if (pkType == typeof(int))
-        {
-            var ids = await context.Database.SqlQueryRaw<int>(result.Query, [..result.Parameters]).ToArrayAsync();
-            SetPkValues(pkProp, ids, objects);
-            affectedRows += ids.Length;
-        }
-        else if (pkType == typeof(long))
-        {
-            var ids = await context.Database.SqlQueryRaw<long>(result.Query, [..result.Parameters]).ToArrayAsync();
-            SetPkValues(pkProp, ids, objects);
-            affectedRows += ids.Length;
-        }
-        else if (pkType == typeof(string))
-        {
-            var ids = await context.Database.SqlQueryRaw<string>(result.Query, result.Parameters.ToArray()).ToArrayAsync();
-            SetPkValues(pkProp, ids, objects);
-            affectedRows += ids.Length;
-        }
-        else if (pkType == typeof(Guid))
-        {
-            var ids = await context.Database.SqlQueryRaw<Guid>(result.Query, result.Parameters.ToArray()).ToArrayAsync();
-            SetPkValues(pkProp, ids, objects);
-            affectedRows += ids.Length;
-        }
-        else
-        {
-            // pkType not supported.
-        }
-
-        return affectedRows;
+        return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
+        //var entityType = typeof(T);
+        //var pkProp = entityType.GetProperty(result.PrimaryKeyPropertyName)!;
+        //var pkType = pkProp.PropertyType;
+        //if (pkType == typeof(int))
+        //{
+        //    var ids = await context.Database.SqlQueryRaw<int>(result.Query, [..result.Parameters]).ToArrayAsync();
+        //    SetPkValues(pkProp, ids, objects);
+        //    affectedRows += ids.Length;
+        //}
+        //else if (pkType == typeof(long))
+        //{
+        //    var ids = await context.Database.SqlQueryRaw<long>(result.Query, [..result.Parameters]).ToArrayAsync();
+        //    SetPkValues(pkProp, ids, objects);
+        //    affectedRows += ids.Length;
+        //}
+        //else if (pkType == typeof(string))
+        //{
+        //    var ids = await context.Database.SqlQueryRaw<string>(result.Query, result.Parameters.ToArray()).ToArrayAsync();
+        //    SetPkValues(pkProp, ids, objects);
+        //    affectedRows += ids.Length;
+        //}
+        //else if (pkType == typeof(Guid))
+        //{
+        //    var ids = await context.Database.SqlQueryRaw<Guid>(result.Query, result.Parameters.ToArray()).ToArrayAsync();
+        //    SetPkValues(pkProp, ids, objects);
+        //    affectedRows += ids.Length;
+        //}
+        //else
+        //{
+        //    // pkType not supported.
+        //}
+        //return affectedRows;
     }
 
     private static void SetPkValues<TEntity, TKey>(PropertyInfo pkProp, TKey[] ids, List<TEntity> objects)
         where TEntity : class
     {
-        for (int i = 0; i < ids.Length; i++)
+        var len = ids.Length;
+        for (int i = 0; i < len; i++)
         {
             pkProp.SetValue(objects[i], ids[i]);
         }

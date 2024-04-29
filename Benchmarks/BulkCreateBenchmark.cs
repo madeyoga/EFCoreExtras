@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace EFCoreExtras.Benchmarks;
 
 [MemoryDiagnoser]
-[MinColumn, MaxColumn]
+//[MinColumn, MaxColumn]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
 [RankColumn(NumeralSystem.Arabic)]
 public class BulkCreateBenchmark
@@ -18,7 +18,7 @@ public class BulkCreateBenchmark
     // private IServiceScope _scope = null!;
     // private TestDbContext _context = null!;
 
-    [Params(1000, 2000, 4000)]
+    [Params(2000)]
     public int NumberOfItems {get;set;}
 
     [GlobalSetup]
