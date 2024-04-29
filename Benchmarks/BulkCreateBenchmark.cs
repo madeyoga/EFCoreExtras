@@ -64,24 +64,24 @@ public class BulkCreateBenchmark
     //     _scope.Dispose();
     // }
 
-    [Benchmark]
-    public int EFCore_SaveChanges()
-    {
-       using var scope = _services.CreateScope();
+    // [Benchmark]
+    // public int EFCore_SaveChanges()
+    // {
+    //    using var scope = _services.CreateScope();
 
-       using var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+    //    using var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
 
-       context.Database.OpenConnection();
-       context.Database.EnsureCreated();
+    //    context.Database.OpenConnection();
+    //    context.Database.EnsureCreated();
 
-       context.AddRange(_data);
-       int affectedRows = context.SaveChanges();
+    //    context.AddRange(_data);
+    //    int affectedRows = context.SaveChanges();
 
-       context.Database.EnsureDeleted();
-       context.Database.CloseConnection();
+    //    context.Database.EnsureDeleted();
+    //    context.Database.CloseConnection();
 
-       return affectedRows;
-    }
+    //    return affectedRows;
+    // }
 
     [Benchmark(Baseline = true)]
     public int EFCoreExtras_BulkCreate_100BatchSize()
