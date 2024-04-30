@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
 using System.Linq.Expressions;
 
 namespace EFCoreExtras;
@@ -16,7 +15,7 @@ public static class BulkUpdateDbContextExtensions
     /// <param name="batchSize"></param>
     /// <returns></returns>
     /// <exception cref="ArgumentException"></exception>
-    public static async Task<int> BulkUpdateAsync<T>(this DbContext context, List<T> objects, string[] properties, int batchSize = 100) where T : class
+    public static async Task<int> BulkUpdateAsync<T>(this DbContext context, IEnumerable<T> objects, string[] properties, int batchSize = 100) where T : class
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(batchSize, 1);
 
@@ -28,12 +27,7 @@ public static class BulkUpdateDbContextExtensions
 
         foreach (var batch in batches)
         {
-            var result = bulkService.CreateBulkUpdateQuery(context, objects, properties);
-            
-            if (result.Ids.Any())
-            {
-                affectedRows += await context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
-            }
+            affectedRows += await bulkService.ExecuteBulkUpdateAsync(context, batch, properties);
         }
 
         context.AttachRange(objects);
@@ -41,7 +35,7 @@ public static class BulkUpdateDbContextExtensions
         return affectedRows;
     }
 
-    public static Task<int> BulkUpdateAsync<T>(this DbContext context, List<T> objects, Expression<Func<T, object>>[] expressions, int batchSize = 100)
+    public static Task<int> BulkUpdateAsync<T>(this DbContext context, IEnumerable<T> objects, Expression<Func<T, object>>[] expressions, int batchSize = 100)
         where T : class
     {
         return BulkUpdateAsync(context, objects, GetPropertyNames(expressions), batchSize);
@@ -57,27 +51,23 @@ public static class BulkUpdateDbContextExtensions
     /// <param name="batchSize"></param>
     /// <returns></returns>
     /// <exception cref="ArgumentException"></exception>
-    public static int BulkUpdate<T>(this DbContext context, List<T> objects, string[] properties, int batchSize = 100) 
+    public static int BulkUpdate<T>(this DbContext context, IEnumerable<T> objects, string[] properties, int batchSize = 100) 
         where T : class
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(batchSize, 1);
 
-        if (objects.Count == 0 || properties.Length == 0)
+        if (!objects.Any() || properties.Length == 0)
             throw new ArgumentException("The objects or properties provided cannot be empty.");
 
         int affectedRows = 0;
 
         var batches = ModelSelection.SplitIntoBatches(objects, batchSize);
+
         var bulkService = context.GetBulkOperationService();
 
         foreach (var batch in batches)
         {
-            var result = bulkService.CreateBulkUpdateQuery(context, batch, properties);
-
-            if (result.Ids.Any())
-            {
-                affectedRows += context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
-            }
+            affectedRows += bulkService.ExecuteBulkUpdate(context, batch, properties);
         }
 
         context.AttachRange(objects);
@@ -85,7 +75,7 @@ public static class BulkUpdateDbContextExtensions
         return affectedRows;
     }
 
-    public static int BulkUpdate<T>(this DbContext context, List<T> objects, Expression<Func<T, object>>[] expressions, int batchSize = 100)
+    public static int BulkUpdate<T>(this DbContext context, IEnumerable<T> objects, Expression<Func<T, object>>[] expressions, int batchSize = 100)
         where T : class
     {
         return BulkUpdate(context, objects, GetPropertyNames(expressions), batchSize);

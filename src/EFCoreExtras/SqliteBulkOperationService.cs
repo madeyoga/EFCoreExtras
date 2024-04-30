@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 
@@ -7,10 +8,22 @@ namespace EFCoreExtras;
 
 public class SqliteBulkOperationService : IBulkOperationService
 {
-    public BulkInsertQueryResult CreateBulkInsertQuery<T>(DbContext context, List<T> objects)
+    readonly MethodInfo bulkInsertBatches;
+    readonly MethodInfo bulkInsertBatchesAsync;
+
+    public SqliteBulkOperationService()
+    {
+        bulkInsertBatches = typeof(SqliteBulkOperationService)
+            .GetMethod("ExecuteBulkInsertBatches", BindingFlags.NonPublic | BindingFlags.Static)!;
+        bulkInsertBatchesAsync = typeof(SqliteBulkOperationService)
+            .GetMethod("ExecuteBulkInsertBatchesAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
+    }
+
+
+    public static BulkInsertQueryResult CreateBulkInsertQuery<T>(DbContext context, IEnumerable<T> objects, bool retrieveKeys = false)
         where T : class
     {
-        if (objects.Count == 0)
+        if (!objects.Any())
         {
             throw new ArgumentException("The objects provided cannot be empty.");
         }
@@ -69,20 +82,22 @@ public class SqliteBulkOperationService : IBulkOperationService
             queryBuilder.Length -= 2; // Remove ", "
             queryBuilder.Append("), ");
         }
-
         queryBuilder.Length -= 2; // Remove last 2 characters, a comma anda space.
 
-        var primaryKeyPropertyName = entityType
-            .FindPrimaryKey()!
-            .Properties
-            .Select(x => x.Name)
-            .First();
-        queryBuilder.Append($" RETURNING {primaryKeyPropertyName};");
+        if (retrieveKeys)
+        {
+            var key = entityType.FindPrimaryKey();
+            if (key is not null)
+            {
+                var primaryKeyPropertyName = key.Properties[0].GetColumnName();
+                queryBuilder.Append($" RETURNING {primaryKeyPropertyName};"); // Retrieve primary key values.
+            }
+        }
 
-        return new BulkInsertQueryResult(queryBuilder.ToString(), [..parameters], primaryKeyPropertyName);
+        return new BulkInsertQueryResult(queryBuilder.ToString(), [..parameters]);
     }
 
-    public BulkUpdateQueryResult CreateBulkUpdateQuery<T>(DbContext context, List<T> objects, string[] properties)
+    public static BulkUpdateQueryResult CreateBulkUpdateQuery<T>(DbContext context, IEnumerable<T> objects, string[] properties)
         where T : class
     {
         var modelType = typeof(T);
@@ -90,9 +105,8 @@ public class SqliteBulkOperationService : IBulkOperationService
         var tableName = entityType.GetTableName();
         var primaryKeyPropertyName = entityType
             .FindPrimaryKey()!
-            .Properties
-            .Select(x => x.Name)
-            .First();
+            .Properties[0]
+            .GetColumnName();
         var pkProp = modelType.GetProperty(primaryKeyPropertyName)!;
 
         Dictionary<string, StringBuilder> cache = [];
@@ -145,112 +159,135 @@ public class SqliteBulkOperationService : IBulkOperationService
 
         return new BulkUpdateQueryResult(queryBuilder.ToString(), parameters, ids);
     }
-    
-    public int ExecuteBulkInsert<T>(DbContext context, List<T> objects) 
+
+    /// <summary>
+    /// This operation executes immediately against database. It also does not interact with EF ChangeTracker.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="context"></param>
+    /// <param name="objects"></param>
+    /// <returns></returns>
+    public int ExecuteBulkInsert<T>(DbContext context, IEnumerable<T> objects) 
         where T : class
     {
         var result = CreateBulkInsertQuery(context, objects);
         return context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
-
-        //int affectedRows = 0;
-        //var entityType = typeof(T);
-        //var pkProp = entityType.GetProperty(result.PrimaryKeyPropertyName)!;
-        //var pkType = pkProp.PropertyType;
-
-        //if (pkType == typeof(int))
-        //{
-        //    var ids = context.Database.SqlQueryRaw<int>(result.Query, result.Parameters).ToArray();
-        //    //SetPkValues(ids, objects, pkProp);
-        //    SetPkValues(pkProp, ids, objects);
-        //    //affectedRows += ids.Length;
-        //}
-        //else if (pkType == typeof(long))
-        //{
-        //    var ids = context.Database.SqlQueryRaw<long>(result.Query, result.Parameters).ToArray();
-        //    SetPkValues(pkProp, ids, objects);
-        //    affectedRows += ids.Length;
-        //}
-        //else if (pkType == typeof(string))
-        //{
-        //    var ids = context.Database.SqlQueryRaw<string>(result.Query, result.Parameters).ToArray();
-        //    SetPkValues(pkProp, ids, objects);
-        //    affectedRows += ids.Length;
-        //}
-        //else if (pkType == typeof(Guid))
-        //{
-        //    var ids = context.Database.SqlQueryRaw<Guid>(result.Query, result.Parameters).ToArray();
-        //    SetPkValues(pkProp, ids, objects);
-        //    affectedRows += ids.Length;
-        //}
-        //else
-        //{
-        //    // pkType not supported.
-        //}
-        //return affectedRows;
-
-        //var method = typeof(RelationalDatabaseFacadeExtensions)
-        //    .GetMethod("SqlQueryRaw", BindingFlags.Static | BindingFlags.Public)!
-        //    .MakeGenericMethod(pkType);
-        //var dbResult = method.Invoke(context.Database, [context.Database, result.Query, result.Parameters.ToArray()])!;
-        //var toArrayMethod = typeof(Enumerable)
-        //    .GetMethod("ToArray", BindingFlags.Public | BindingFlags.Static)!
-        //    .MakeGenericMethod(pkType);
-        //var ids = toArrayMethod.Invoke(null, [dbResult]);
-        //var setPkValuesMethod = typeof(BulkCreateDbContextExtensions)
-        //    .GetMethod("SetPkValues", BindingFlags.Static | BindingFlags.NonPublic)!
-        //    .MakeGenericMethod(typeof(T), pkType);
-        //setPkValuesMethod.Invoke(null, [pkProp, ids, batch]);
     }
 
-    public Task<int> ExecuteBulkInsertAsync<T>(DbContext context, List<T> objects) where T : class
+    /// <summary>
+    /// This operation executes immediately against database. It also does not interact with EF ChangeTracker.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="context"></param>
+    /// <param name="objects"></param>
+    /// <returns></returns>
+    public Task<int> ExecuteBulkInsertAsync<T>(DbContext context, IEnumerable<T> objects) where T : class
     {
         var result = CreateBulkInsertQuery(context, objects);
         return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
     }
 
-    //private static void SetPkValues<TEntity, TKey>(PropertyInfo pkProp, TKey[] ids, List<TEntity> objects)
-    //    where TEntity : class
-    //{
-    //    var len = ids.Length;
-    //    for (int i = 0; i < len; i++)
-    //    {
-    //        pkProp.SetValue(objects[i], ids[i]);
-    //    }
-    //}
+    public static Action<TEntity, TKey> CreateSetter<TEntity, TKey>(string propertyName)
+    {
+        // delegate(instance, propertyValue)
+        ParameterExpression instance = Expression.Parameter(typeof(TEntity), "instance");
+        ParameterExpression propertyValue = Expression.Parameter(typeof(TKey), "propertyValue");
 
-    //private static readonly Dictionary<string, object> setters = [];
+        // instance.PropertyName = propertyValue
+        var body = Expression.Assign(Expression.Property(instance, propertyName), propertyValue);
 
-    //private static void SetPkValues<TEntity, TKey>(TKey[] ids, List<TEntity> objects, PropertyInfo propertyInfo)
-    //    where TEntity : class
-    //{
-    //    var len = ids.Length;
+        // Action (instance, propertValue) => instance.PropertyName = propertyValue
+        return Expression.Lambda<Action<TEntity, TKey>>(body, instance, propertyValue).Compile();
+    }
 
-    //    Action<TEntity, TKey> setterDelegate;
-    //    if (setters.TryGetValue(propertyInfo.Name, out var value))
-    //    {
-    //        setterDelegate = (Action<TEntity, TKey>) value;
-    //    }
-    //    else
-    //    {
-    //        setterDelegate = CreateSetter<TEntity, TKey>(propertyInfo);
-    //        setters.Add(propertyInfo.Name, setterDelegate);
-    //    }
-    //    for (int i = 0; i < len; i++)
-    //    {
-    //        setterDelegate(objects[i], ids[i]!);
-    //    }
-    //}
+    private static int ExecuteBulkInsertBatches<T, TKey>(DbContext context, T[][] batches, PropertyInfo pkProp)
+        where T : class
+    {
+        int affectedRows = 0;
+        foreach (var batch in batches)
+        {
+            var result = CreateBulkInsertQuery(context, batch, retrieveKeys: true);
+            var ids = context.Database.SqlQueryRaw<TKey>(result.Query, result.Parameters).ToArray();
+            var len = ids.Length;
+            for (var i = 0; i < len; i++)
+            {
+                //setter(batch[i], ids[i]);
+                pkProp.SetValue(batch[i], ids[i]);
+            }
 
-    //public static Action<TEntity, TKey> CreateSetter<TEntity, TKey>(PropertyInfo propertyInfo)
-    //{
-    //    // delegate(instance, propertyValue)
-    //    ParameterExpression instance = Expression.Parameter(typeof(TEntity), "instance");
-    //    ParameterExpression propertyValue = Expression.Parameter(typeof(TKey), "propertyValue");
+            affectedRows += len;
+        }
 
-    //    // instance.PropertyName = propertyValue
-    //    var body = Expression.Assign(Expression.Property(instance, propertyInfo.Name), propertyValue);
+        return affectedRows;
+    }
 
-    //    // Action (instance, propertValue) => instance.PropertyName = propertyValue
-    //    return Expression.Lambda<Action<TEntity, TKey>>(body, instance, propertyValue).Compile();
-    //}
+    private static async Task<int> ExecuteBulkInsertBatchesAsync<T, TKey>(DbContext context, T[][] batches, PropertyInfo pkProp)
+        where T : class
+    {
+        int affectedRows = 0;
+        foreach (var batch in batches)
+        {
+            var result = CreateBulkInsertQuery(context, batch, retrieveKeys: true);
+            var ids = await context.Database.SqlQueryRaw<TKey>(result.Query, result.Parameters).ToArrayAsync();
+            var len = ids.Length;
+            for (var i = 0; i < len; i++)
+            {
+                //setter(batch[i], ids[i]);
+                pkProp.SetValue(batch[i], ids[i]);
+            }
+
+            affectedRows += len;
+        }
+
+        return affectedRows;
+    }
+
+    public int ExecuteBulkInsertRetrieveKeys<T>(DbContext context, IEnumerable<T> objects, int batchSize) where T : class
+    {
+        //var setter = CreateSetter<T, int>("Id");
+        var modelType = typeof(T);
+        var entityType = context.Model.FindEntityType(modelType)!;
+        var pkPropertyName = entityType
+            .FindPrimaryKey()!
+            .Properties[0]
+            .GetColumnName();
+        var pkProp = modelType.GetProperty(pkPropertyName)!;
+        var pkType = pkProp.PropertyType;
+
+        var batches = ModelSelection.SplitIntoBatches(objects, batchSize);
+
+        var method = bulkInsertBatches.MakeGenericMethod(typeof(T), pkType);
+
+        return (int) method.Invoke(this, [context, batches, pkProp])!;
+    }
+
+    public async Task<int> ExecuteBulkInsertRetrieveKeysAsync<T>(DbContext context, IEnumerable<T> objects, int batchSize = 100) where T : class
+    {
+        var modelType = typeof(T);
+        var entityType = context.Model.FindEntityType(modelType)!;
+        var pkPropertyName = entityType
+            .FindPrimaryKey()!
+            .Properties[0]
+            .GetColumnName();
+        var pkProp = modelType.GetProperty(pkPropertyName)!;
+        var pkType = pkProp.PropertyType;
+
+        var batches = ModelSelection.SplitIntoBatches(objects, batchSize);
+
+        var method = bulkInsertBatchesAsync.MakeGenericMethod(typeof(T), pkType);
+
+        return await (Task<int>) method.Invoke(this, [context, batches, pkProp])!;
+    }
+
+    public int ExecuteBulkUpdate<T>(DbContext context, IEnumerable<T> objects, string[] properties) where T : class
+    {
+        var result = CreateBulkUpdateQuery(context, objects, properties);
+        return context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
+    }
+
+    public Task<int> ExecuteBulkUpdateAsync<T>(DbContext context, IEnumerable<T> objects, string[] properties) where T : class
+    {
+        var result = CreateBulkUpdateQuery(context, objects, properties);
+        return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
+    }
 }

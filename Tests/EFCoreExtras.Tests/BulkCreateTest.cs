@@ -106,7 +106,7 @@ public class BulkCreateTest
     [TestMethod]
     public async Task BulkCreateAsyncListOfItems_AutoIncrement()
     {
-        await _dbContext.BulkCreateAsync(itemsAutoIncrement, 5);
+        await _dbContext.BulkCreateRetrieveKeysAsync(itemsAutoIncrement, 5);
 
         Assert.AreEqual(itemsAutoIncrement.Count, _dbContext.Items.Count());
 
@@ -125,7 +125,7 @@ public class BulkCreateTest
     [TestMethod]
     public void BulkCreateListOfItems_AutoIncrement()
     {
-        _dbContext.BulkCreate(itemsAutoIncrement, 5);
+        _dbContext.BulkCreateRetrieveKeys(itemsAutoIncrement, 5);
 
         Assert.AreEqual(itemsAutoIncrement.Count, _dbContext.Items.Count());
 

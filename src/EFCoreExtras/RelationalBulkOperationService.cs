@@ -7,10 +7,10 @@ namespace EFCoreExtras;
 
 public class RelationalBulkOperationService : IBulkOperationService
 {
-    public BulkInsertQueryResult CreateBulkInsertQuery<T>(DbContext context, List<T> objects)
+    public static BulkInsertQueryResult CreateBulkInsertQuery<T>(DbContext context, IEnumerable<T> objects)
         where T : class
     {
-        if (objects.Count == 0)
+        if (!objects.Any())
         {
             throw new ArgumentException("The objects provided cannot be empty.");
         }
@@ -72,10 +72,10 @@ public class RelationalBulkOperationService : IBulkOperationService
 
         queryBuilder.Length -= 2; // Remove last 2 characters, a comma anda space.
 
-        return new BulkInsertQueryResult(queryBuilder.ToString(), [..parameters], "Id");
+        return new BulkInsertQueryResult(queryBuilder.ToString(), [..parameters]);
     }
 
-    public BulkUpdateQueryResult CreateBulkUpdateQuery<T>(DbContext context, List<T> objects, string[] properties)
+    public static BulkUpdateQueryResult CreateBulkUpdateQuery<T>(DbContext context, IEnumerable<T> objects, string[] properties)
         where T : class
     {
         var modelType = typeof(T);
@@ -139,15 +139,37 @@ public class RelationalBulkOperationService : IBulkOperationService
         return new BulkUpdateQueryResult(queryBuilder.ToString(), parameters, ids);
     }
 
-    public int ExecuteBulkInsert<T>(DbContext context, List<T> objects) where T : class
+    public int ExecuteBulkInsert<T>(DbContext context, IEnumerable<T> objects) where T : class
     {
         var result = CreateBulkInsertQuery(context, objects);
         return context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
     }
 
-    public Task<int> ExecuteBulkInsertAsync<T>(DbContext context, List<T> objects) where T : class
+    public Task<int> ExecuteBulkInsertAsync<T>(DbContext context, IEnumerable<T> objects) where T : class
     {
         var result = CreateBulkInsertQuery(context, objects);
+        return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
+    }
+
+    public int ExecuteBulkInsertRetrieveKeys<T>(DbContext context, IEnumerable<T> objects, int batchSize) where T : class
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<int> ExecuteBulkInsertRetrieveKeysAsync<T>(DbContext context, IEnumerable<T> objects, int batchSize) where T : class
+    {
+        throw new NotImplementedException();
+    }
+
+    public int ExecuteBulkUpdate<T>(DbContext context, IEnumerable<T> objects, string[] properties) where T : class
+    {
+        var result = CreateBulkUpdateQuery(context, objects, properties);
+        return context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
+    }
+
+    public Task<int> ExecuteBulkUpdateAsync<T>(DbContext context, IEnumerable<T> objects, string[] properties) where T : class
+    {
+        var result = CreateBulkUpdateQuery(context, objects, properties);
         return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
     }
 }

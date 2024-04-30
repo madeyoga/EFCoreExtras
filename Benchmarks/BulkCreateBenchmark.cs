@@ -1,5 +1,4 @@
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Engines;
 using BenchmarkDotNet.Mathematics;
 using BenchmarkDotNet.Order;
 using Microsoft.EntityFrameworkCore;
@@ -11,16 +10,17 @@ namespace EFCoreExtras.Benchmarks;
 //[MinColumn, MaxColumn]
 [Orderer(SummaryOrderPolicy.FastestToSlowest)]
 [RankColumn(NumeralSystem.Arabic)]
-[SimpleJob(RunStrategy.ColdStart, iterationCount: 1)]
+//[SimpleJob(RunStrategy.ColdStart, iterationCount: 1)]
 public class BulkCreateBenchmark
 {
     private readonly List<Employee> _data = [];
+    private Employee[] dataArray = null!;
     private IServiceProvider _services = null!;
 
     //private IServiceScope _scope = null!;
     //private TestDbContext _context = null!;
 
-    [Params(1000)]
+    [Params(2000)]
     public int NumberOfItems {get;set;}
 
     [GlobalSetup]
@@ -35,6 +35,8 @@ public class BulkCreateBenchmark
             };
             _data.Add(employee);
         }
+
+        dataArray = _data.ToArray();
 
         var serviceCollection = new ServiceCollection();
         serviceCollection.AddEfCoreExtras();
@@ -66,31 +68,28 @@ public class BulkCreateBenchmark
     //    _scope.Dispose();
     //}
 
-    [Benchmark(Baseline = true)]
-    public int EFCore_SaveChanges()
-    {
-        //_context.AddRange(_data);
-        //return _context.SaveChanges();
-        using var scope = _services.CreateScope();
+    //[Benchmark(Baseline = true)]
+    //public int EFCore_SaveChanges()
+    //{
+    //    using var scope = _services.CreateScope();
 
-        using var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+    //    using var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
 
-        context.Database.OpenConnection();
-        context.Database.EnsureCreated();
+    //    context.Database.OpenConnection();
+    //    context.Database.EnsureCreated();
 
-        context.AddRange(_data);
-        int affectedRows = context.SaveChanges();
+    //    context.AddRange(_data);
+    //    int affectedRows = context.SaveChanges();
 
-        context.Database.EnsureDeleted();
-        context.Database.CloseConnection();
+    //    context.Database.EnsureDeleted();
+    //    context.Database.CloseConnection();
 
-        return affectedRows;
-    }
+    //    return affectedRows;
+    //}
 
     [Benchmark]
     public int EFCoreExtras_BulkCreate_100BatchSize()
     {
-        //return _context.BulkCreate(_data);
         using var scope = _services.CreateScope();
 
         using var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
@@ -98,7 +97,7 @@ public class BulkCreateBenchmark
         context.Database.OpenConnection();
         context.Database.EnsureCreated();
 
-        int affectedRows = context.BulkCreate(_data, batchSize: 100);
+        int affectedRows = context.BulkCreate(_data, 100);
 
         context.Database.EnsureDeleted();
         context.Database.CloseConnection();
