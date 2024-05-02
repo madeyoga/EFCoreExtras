@@ -1,5 +1,3 @@
-# Running Benchmarks
-
 ## Bulk Create
 
 ```sh
