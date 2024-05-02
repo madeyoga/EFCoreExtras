@@ -6,8 +6,11 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddEfCoreExtras(this IServiceCollection services)
     {
-        services.AddSingleton<QueryBuilderProvider>();
-        services.AddSingleton<SqlBulkQueryBuilder>();
+        // Bulk operation services
+        services.AddSingleton<RelationalBulkOperationService>();
+        services.AddSingleton<SqliteBulkOperationService>();
+
+        services.AddSingleton<BulkOperationProvider>();
 
         return services;
     }

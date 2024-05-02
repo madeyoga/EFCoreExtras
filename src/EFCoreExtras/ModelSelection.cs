@@ -2,15 +2,29 @@ namespace EFCoreExtras;
 
 public static class ModelSelection
 {
-    public static List<List<T>> SplitIntoBatches<T>(List<T> objects, int batchSize)
+    public static T[][] SplitIntoBatches<T>(IEnumerable<T> objects, int batchSize)
         where T : class
     {
-        var batches = new List<List<T>>();
-        for (int i = 0; i < objects.Count; i += batchSize)
+        var len = objects.Count();
+        var batches = new List<T[]>((len / batchSize) + 1);
+        for (int i = 0; i < len; i += batchSize)
         {
-            List<T> batch = objects.Skip(i).Take(batchSize).ToList();
+            T[] batch = objects.Skip(i).Take(batchSize).ToArray();
             batches.Add(batch);
         }
-        return batches;
+        return [..batches];
+    }
+
+    public static T[][] SplitIntoBatches<T>(T[] objects, int batchSize)
+        where T : class
+    {
+        var len = objects.Length;
+        var batches = new List<T[]>((len / batchSize) + 1);
+        for (int i = 0; i < len; i += batchSize)
+        {
+            T[] batch = objects.Skip(i).Take(batchSize).ToArray();
+            batches.Add(batch);
+        }
+        return [.. batches];
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EFCoreExtras.Tests;
@@ -7,6 +8,7 @@ namespace EFCoreExtras.Tests;
 public class BulkCreateTest
 {
     readonly List<Item> items = [];
+    readonly List<Item> itemsAutoIncrement = [];
 
     TestDbContext _dbContext = null!;
     IServiceProvider services = null!;
@@ -26,6 +28,30 @@ public class BulkCreateTest
             new Item { Id = 7, Name = "G", },
             new Item { Id = 8, Name = "H", },
             new Item { Id = 9, Name = "I", },
+        ]);
+
+        // Auto increment Id
+        itemsAutoIncrement.AddRange([
+            new Item { Name = "A", },
+            new Item { Name = "B", },
+            new Item { Name = "C", },
+            new Item { Name = "D", },
+            new Item { Name = "E", },
+            new Item { Name = "A", },
+            new Item { Name = "B", },
+            new Item { Name = "C", },
+            new Item { Name = "D", },
+            new Item { Name = "E", },
+            new Item { Name = "A", },
+            new Item { Name = "B", },
+            new Item { Name = "C", },
+            new Item { Name = "D", },
+            new Item { Name = "E", },
+            new Item { Name = "A", },
+            new Item { Name = "B", },
+            new Item { Name = "C", },
+            new Item { Name = "D", },
+            new Item { Name = "E", },
         ]);
 
         var serviceCollection = new ServiceCollection();
@@ -58,9 +84,10 @@ public class BulkCreateTest
     [TestMethod]
     public async Task BulkCreateAsyncListOfItems()
     {
-        await _dbContext.BulkCreateAsync(items, 5);
+        var writtenRows = await _dbContext.BulkCreateAsync(items, 5);
 
         Assert.AreEqual(items.Count, _dbContext.Items.Count());
+        Assert.AreEqual(items.Count, writtenRows);
 
         var itemExists = true;
         foreach (var item in items)
@@ -77,9 +104,50 @@ public class BulkCreateTest
     [TestMethod]
     public void BulkCreateListOfItems()
     {
-        _dbContext.BulkCreate(items, 5);
+        var writtenRows = _dbContext.BulkCreate(items, 5);
 
         Assert.AreEqual(items.Count, _dbContext.Items.Count());
+        Assert.AreEqual(items.Count, writtenRows);
+
+        var itemExists = true;
+        foreach (var item in items)
+        {
+            itemExists = itemExists && _dbContext.Items
+                .Where(i => i.Id == item.Id)
+                .Where(i => i.Name == item.Name)
+                .Where(i => i.Quantity == item.Quantity)
+                .Any();
+        }
+        Assert.IsTrue(itemExists);
+    }
+
+    [TestMethod]
+    public async Task BulkCreateAsyncListOfItems_AutoIncrement()
+    {
+        var items = await _dbContext.BulkCreateRetrieveAsync(itemsAutoIncrement, 5);
+
+        Assert.AreEqual(itemsAutoIncrement.Count, _dbContext.Items.Count());
+        Assert.AreEqual(itemsAutoIncrement.Count, items.Length);
+
+        var itemExists = true;
+        foreach (var item in items)
+        {
+            itemExists = itemExists && _dbContext.Items
+                .Where(i => i.Id == item.Id)
+                .Where(i => i.Name == item.Name)
+                .Where(i => i.Quantity == item.Quantity)
+                .Any();
+        }
+        Assert.IsTrue(itemExists);
+    }
+
+    [TestMethod]
+    public void BulkCreateListOfItems_AutoIncrement()
+    {
+        var items = _dbContext.BulkCreateRetrieve(itemsAutoIncrement, 5);
+
+        Assert.AreEqual(itemsAutoIncrement.Count, _dbContext.Items.Count());
+        Assert.AreEqual(itemsAutoIncrement.Count, items.Length);
 
         var itemExists = true;
         foreach (var item in items)

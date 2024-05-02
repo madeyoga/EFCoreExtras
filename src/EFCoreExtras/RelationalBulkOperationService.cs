@@ -5,12 +5,12 @@ using System.Text;
 
 namespace EFCoreExtras;
 
-public class SqlBulkQueryBuilder : ISqlQueryBuilder
+public class RelationalBulkOperationService : IBulkOperationService
 {
-    public CreateBulkInsertQueryResult CreateBulkInsertQuery<T>(DbContext context, List<T> objects)
+    public static BulkInsertQueryResult CreateBulkInsertQuery<T>(DbContext context, IEnumerable<T> objects)
         where T : class
     {
-        if (objects.Count == 0)
+        if (!objects.Any())
         {
             throw new ArgumentException("The objects provided cannot be empty.");
         }
@@ -72,10 +72,10 @@ public class SqlBulkQueryBuilder : ISqlQueryBuilder
 
         queryBuilder.Length -= 2; // Remove last 2 characters, a comma anda space.
 
-        return new CreateBulkInsertQueryResult(queryBuilder.ToString(), parameters);
+        return new BulkInsertQueryResult(queryBuilder.ToString(), [..parameters]);
     }
 
-    public CreateBulkUpdateQueryResult CreateBulkUpdateQuery<T>(DbContext context, List<T> objects, string[] properties)
+    public static BulkUpdateQueryResult CreateBulkUpdateQuery<T>(DbContext context, IEnumerable<T> objects, string[] properties)
         where T : class
     {
         var modelType = typeof(T);
@@ -136,6 +136,40 @@ public class SqlBulkQueryBuilder : ISqlQueryBuilder
         queryBuilder.Length -= 2;
         queryBuilder.Append($" WHERE {primaryKeyPropertyName} IN ({string.Join(',', ids)})");
 
-        return new CreateBulkUpdateQueryResult(queryBuilder.ToString(), parameters, ids);
+        return new BulkUpdateQueryResult(queryBuilder.ToString(), parameters, ids);
+    }
+
+    public int ExecuteBulkInsert<T>(DbContext context, IEnumerable<T> objects) where T : class
+    {
+        var result = CreateBulkInsertQuery(context, objects);
+        return context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
+    }
+
+    public Task<int> ExecuteBulkInsertAsync<T>(DbContext context, IEnumerable<T> objects) where T : class
+    {
+        var result = CreateBulkInsertQuery(context, objects);
+        return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
+    }
+
+    public T[] ExecuteBulkInsertRetrieve<T>(DbContext context, IEnumerable<T> objects, int batchSize = 100) where T : class
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task<T[]> ExecuteBulkInsertRetrieveAsync<T>(DbContext context, IEnumerable<T> objects, int batchSize = 100) where T : class
+    {
+        throw new NotImplementedException();
+    }
+
+    public int ExecuteBulkUpdate<T>(DbContext context, IEnumerable<T> objects, string[] properties) where T : class
+    {
+        var result = CreateBulkUpdateQuery(context, objects, properties);
+        return context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
+    }
+
+    public Task<int> ExecuteBulkUpdateAsync<T>(DbContext context, IEnumerable<T> objects, string[] properties) where T : class
+    {
+        var result = CreateBulkUpdateQuery(context, objects, properties);
+        return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
     }
 }

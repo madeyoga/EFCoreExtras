@@ -6,14 +6,14 @@ namespace EFCoreExtras;
 public static class BulkCreateDbContextExtensions
 {
     /// <summary>
-    /// Split (tracked or untracked) objects into batches and build and execute bulk insert query.
+    /// Split objects into batches and execute bulk insert query immediately against database.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="context"></param>
     /// <param name="objects">Tracked or untracked objects.</param>
     /// <param name="batchSize">Number of objects included for each query.</param>
     /// <returns>Number of written rows.</returns>
-    public static async Task<int> BulkCreateAsync<T>(this DbContext context, List<T> objects, int batchSize = 100)
+    public static async Task<int> BulkCreateAsync<T>(this DbContext context, IEnumerable<T> objects, int batchSize = 100)
         where T : class
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(batchSize, 0);
@@ -22,26 +22,24 @@ public static class BulkCreateDbContextExtensions
 
         var batches = ModelSelection.SplitIntoBatches(objects, batchSize);
 
-        var queryBuilder = GetSqlBulkQueryBuilder(context);
-
+        var bulkService = GetBulkOperationService(context);
         foreach (var batch in batches)
         {
-            var result = queryBuilder.CreateBulkInsertQuery(context, batch);
-            affectedRows += await context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
+            affectedRows += await bulkService.ExecuteBulkInsertAsync(context, batch);
         }
 
         return affectedRows;
     }
 
     /// <summary>
-    /// Split (tracked or untracked) objects into batches and build and execute bulk insert query.
+    /// Split objects into batches and execute bulk insert query immediately against database.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="context"></param>
     /// <param name="objects">Tracked or untracked objects.</param>
     /// <param name="batchSize">Number of objects included for each query.</param>
     /// <returns>Number of written rows.</returns>
-    public static int BulkCreate<T>(this DbContext context, List<T> objects, int batchSize = 100)
+    public static int BulkCreate<T>(this DbContext context, IEnumerable<T> objects, int batchSize = 100)
         where T : class
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(batchSize, 0);
@@ -50,22 +48,38 @@ public static class BulkCreateDbContextExtensions
         
         var batches = ModelSelection.SplitIntoBatches(objects, batchSize);
 
-        var queryBuilder = GetSqlBulkQueryBuilder(context);
-
+        var bulkService = GetBulkOperationService(context);
         foreach (var batch in batches)
         {
-            var result = queryBuilder.CreateBulkInsertQuery(context, batch);
-            affectedRows += context.Database.ExecuteSqlRaw(result.Query, result.Parameters);
+            affectedRows += bulkService.ExecuteBulkInsert(context, batch);
         }
 
         return affectedRows;
     }
 
-    public static ISqlQueryBuilder GetSqlBulkQueryBuilder(this DbContext context)
+    public static T[] BulkCreateRetrieve<T>(this DbContext context, IEnumerable<T> objects, int batchSize = 100)
+        where T : class
     {
-        var provider = context.GetService<QueryBuilderProvider>();
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(batchSize, 0);
 
-        var queryBuilder = provider.GetQueryBuilder(context.Database.ProviderName!);
+        var bulkService = GetBulkOperationService(context);
+        return bulkService.ExecuteBulkInsertRetrieve(context, objects, batchSize);
+    }
+
+    public static Task<T[]> BulkCreateRetrieveAsync<T>(this DbContext context, IEnumerable<T> objects, int batchSize = 100)
+        where T : class
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(batchSize, 0);
+
+        var bulkService = GetBulkOperationService(context);
+        return bulkService.ExecuteBulkInsertRetrieveAsync(context, objects, batchSize);
+    }
+
+    internal static IBulkOperationService GetBulkOperationService(this DbContext context)
+    {
+        var provider = context.GetService<BulkOperationProvider>();
+
+        var queryBuilder = provider.GetBulkOperationService(context.Database.ProviderName!);
 
         if (queryBuilder is null)
         {
