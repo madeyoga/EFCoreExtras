@@ -8,19 +8,7 @@ namespace EFCoreExtras;
 
 public class SqliteBulkOperationService : IBulkOperationService
 {
-    readonly MethodInfo bulkInsertBatches;
-    readonly MethodInfo bulkInsertBatchesAsync;
-
-    public SqliteBulkOperationService()
-    {
-        bulkInsertBatches = typeof(SqliteBulkOperationService)
-            .GetMethod("ExecuteBulkInsertBatches", BindingFlags.NonPublic | BindingFlags.Static)!;
-        bulkInsertBatchesAsync = typeof(SqliteBulkOperationService)
-            .GetMethod("ExecuteBulkInsertBatchesAsync", BindingFlags.NonPublic | BindingFlags.Static)!;
-    }
-
-
-    public static BulkInsertQueryResult CreateBulkInsertQuery<T>(DbContext context, IEnumerable<T> objects, bool retrieveKeys = false)
+    public static BulkInsertQueryResult CreateBulkInsertQuery<T>(DbContext context, IEnumerable<T> objects, bool retrieve = false)
         where T : class
     {
         if (!objects.Any())
@@ -32,14 +20,21 @@ public class SqliteBulkOperationService : IBulkOperationService
         IEntityType entityType = context.Model.FindEntityType(modelType)!;
         string tableName = entityType.GetTableName()!;
 
-        IEnumerable<IProperty> properties = entityType.GetDeclaredProperties();
-
-        var propertyNames = properties
-            .Select(p => p.GetColumnName())
-            .ToList();
+        // Cache property infos
+        var properties = entityType.GetDeclaredProperties().ToArray();
+        string[] propertyNames = new string[properties.Length];
+        Dictionary<string, PropertyInfo> propInfos = [];
+        for (int i = 0; i < properties.Length; i++)
+        {
+            var prop = properties[i];
+            var propName = prop.Name;
+            propertyNames[i] = propName;
+            propInfos[propName] = modelType.GetProperty(propName)!;
+        }
+        var propNameJoin = string.Join(',', propertyNames);
 
         var queryBuilder = new StringBuilder();
-        queryBuilder.Append($"INSERT INTO {tableName} ({string.Join(',', propertyNames)}) VALUES ");
+        queryBuilder.Append($"INSERT INTO {tableName} ({propNameJoin}) VALUES ");
 
         List<object> parameters = [];
         int paramIndex = 0;
@@ -49,7 +44,7 @@ public class SqliteBulkOperationService : IBulkOperationService
 
             foreach (var property in properties)
             {
-                var propInfo = modelType.GetProperty(property.Name)!; // can be cached
+                var propInfo = propInfos[property.Name];
                 var propValue = propInfo.GetValue(obj, null);
 
                 if (property.ValueGenerated == ValueGenerated.OnAdd)
@@ -84,17 +79,12 @@ public class SqliteBulkOperationService : IBulkOperationService
         }
         queryBuilder.Length -= 2; // Remove last 2 characters, a comma anda space.
 
-        if (retrieveKeys)
+        if (retrieve)
         {
-            var key = entityType.FindPrimaryKey();
-            if (key is not null)
-            {
-                var primaryKeyPropertyName = key.Properties[0].GetColumnName();
-                queryBuilder.Append($" RETURNING {primaryKeyPropertyName};"); // Retrieve primary key values.
-            }
+            queryBuilder.Append($" RETURNING {propNameJoin};");
         }
 
-        return new BulkInsertQueryResult(queryBuilder.ToString(), [..parameters]);
+        return new BulkInsertQueryResult(queryBuilder.ToString(), [.. parameters]);
     }
 
     public static BulkUpdateQueryResult CreateBulkUpdateQuery<T>(DbContext context, IEnumerable<T> objects, string[] properties)
@@ -187,96 +177,38 @@ public class SqliteBulkOperationService : IBulkOperationService
         return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
     }
 
-    public static Action<TEntity, TKey> CreateSetter<TEntity, TKey>(string propertyName)
-    {
-        // delegate(instance, propertyValue)
-        ParameterExpression instance = Expression.Parameter(typeof(TEntity), "instance");
-        ParameterExpression propertyValue = Expression.Parameter(typeof(TKey), "propertyValue");
-
-        // instance.PropertyName = propertyValue
-        var body = Expression.Assign(Expression.Property(instance, propertyName), propertyValue);
-
-        // Action (instance, propertValue) => instance.PropertyName = propertyValue
-        return Expression.Lambda<Action<TEntity, TKey>>(body, instance, propertyValue).Compile();
-    }
-
-    private static int ExecuteBulkInsertBatches<T, TKey>(DbContext context, T[][] batches, PropertyInfo pkProp)
+    public T[] ExecuteBulkInsertRetrieve<T>(DbContext context, IEnumerable<T> objects, int batchSize = 100)
         where T : class
     {
-        int affectedRows = 0;
-        foreach (var batch in batches)
-        {
-            var result = CreateBulkInsertQuery(context, batch, retrieveKeys: true);
-            var ids = context.Database.SqlQueryRaw<TKey>(result.Query, result.Parameters).ToArray();
-            var len = ids.Length;
-            for (var i = 0; i < len; i++)
-            {
-                //setter(batch[i], ids[i]);
-                pkProp.SetValue(batch[i], ids[i]);
-            }
-
-            affectedRows += len;
-        }
-
-        return affectedRows;
-    }
-
-    private static async Task<int> ExecuteBulkInsertBatchesAsync<T, TKey>(DbContext context, T[][] batches, PropertyInfo pkProp)
-        where T : class
-    {
-        int affectedRows = 0;
-        foreach (var batch in batches)
-        {
-            var result = CreateBulkInsertQuery(context, batch, retrieveKeys: true);
-            var ids = await context.Database.SqlQueryRaw<TKey>(result.Query, result.Parameters).ToArrayAsync();
-            var len = ids.Length;
-            for (var i = 0; i < len; i++)
-            {
-                //setter(batch[i], ids[i]);
-                pkProp.SetValue(batch[i], ids[i]);
-            }
-
-            affectedRows += len;
-        }
-
-        return affectedRows;
-    }
-
-    public int ExecuteBulkInsertRetrieveKeys<T>(DbContext context, IEnumerable<T> objects, int batchSize) where T : class
-    {
-        //var setter = CreateSetter<T, int>("Id");
-        var modelType = typeof(T);
-        var entityType = context.Model.FindEntityType(modelType)!;
-        var pkPropertyName = entityType
-            .FindPrimaryKey()!
-            .Properties[0]
-            .GetColumnName();
-        var pkProp = modelType.GetProperty(pkPropertyName)!;
-        var pkType = pkProp.PropertyType;
+        List<T> values = new(objects.Count());
 
         var batches = ModelSelection.SplitIntoBatches(objects, batchSize);
 
-        var method = bulkInsertBatches.MakeGenericMethod(typeof(T), pkType);
+        foreach (T[] batch in batches)
+        {
+            var result = CreateBulkInsertQuery(context, batch, true);
+            var value = context.Database.SqlQueryRaw<T>(result.Query, result.Parameters).ToArray();
+            values.AddRange(value);
+        }
 
-        return (int) method.Invoke(this, [context, batches, pkProp])!;
+        return values.ToArray();
     }
 
-    public async Task<int> ExecuteBulkInsertRetrieveKeysAsync<T>(DbContext context, IEnumerable<T> objects, int batchSize = 100) where T : class
+    public async Task<T[]> ExecuteBulkInsertRetrieveAsync<T>(DbContext context, IEnumerable<T> objects, int batchSize = 100)
+        where T : class
     {
-        var modelType = typeof(T);
-        var entityType = context.Model.FindEntityType(modelType)!;
-        var pkPropertyName = entityType
-            .FindPrimaryKey()!
-            .Properties[0]
-            .GetColumnName();
-        var pkProp = modelType.GetProperty(pkPropertyName)!;
-        var pkType = pkProp.PropertyType;
+        List<T> values = new(objects.Count());
 
         var batches = ModelSelection.SplitIntoBatches(objects, batchSize);
 
-        var method = bulkInsertBatchesAsync.MakeGenericMethod(typeof(T), pkType);
+        foreach (T[] batch in batches)
+        {
+            var result = CreateBulkInsertQuery(context, batch, true);
+            var items = await context.Database.SqlQueryRaw<T>(result.Query, result.Parameters).ToArrayAsync();
+            values.AddRange(items);
+        }
 
-        return await (Task<int>) method.Invoke(this, [context, batches, pkProp])!;
+        return values.ToArray();
     }
 
     public int ExecuteBulkUpdate<T>(DbContext context, IEnumerable<T> objects, string[] properties) where T : class
@@ -289,5 +221,18 @@ public class SqliteBulkOperationService : IBulkOperationService
     {
         var result = CreateBulkUpdateQuery(context, objects, properties);
         return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
+    }
+
+    private static Action<TEntity, TKey> CreateSetter<TEntity, TKey>(string propertyName)
+    {
+        // delegate(instance, propertyValue)
+        ParameterExpression instance = Expression.Parameter(typeof(TEntity), "instance");
+        ParameterExpression propertyValue = Expression.Parameter(typeof(TKey), "propertyValue");
+
+        // instance.PropertyName = propertyValue
+        var body = Expression.Assign(Expression.Property(instance, propertyName), propertyValue);
+
+        // Action (instance, propertValue) => instance.PropertyName = propertyValue
+        return Expression.Lambda<Action<TEntity, TKey>>(body, instance, propertyValue).Compile();
     }
 }

@@ -151,12 +151,12 @@ public class RelationalBulkOperationService : IBulkOperationService
         return context.Database.ExecuteSqlRawAsync(result.Query, result.Parameters);
     }
 
-    public int ExecuteBulkInsertRetrieveKeys<T>(DbContext context, IEnumerable<T> objects, int batchSize) where T : class
+    public T[] ExecuteBulkInsertRetrieve<T>(DbContext context, IEnumerable<T> objects, int batchSize = 100) where T : class
     {
         throw new NotImplementedException();
     }
 
-    public Task<int> ExecuteBulkInsertRetrieveKeysAsync<T>(DbContext context, IEnumerable<T> objects, int batchSize) where T : class
+    public Task<T[]> ExecuteBulkInsertRetrieveAsync<T>(DbContext context, IEnumerable<T> objects, int batchSize = 100) where T : class
     {
         throw new NotImplementedException();
     }

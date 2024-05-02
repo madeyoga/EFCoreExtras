@@ -6,7 +6,7 @@ namespace EFCoreExtras;
 public static class BulkCreateDbContextExtensions
 {
     /// <summary>
-    /// Split (tracked or untracked) objects into batches and build and execute bulk insert query.
+    /// Split objects into batches and execute bulk insert query immediately against database.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="context"></param>
@@ -32,7 +32,7 @@ public static class BulkCreateDbContextExtensions
     }
 
     /// <summary>
-    /// Split (tracked or untracked) objects into batches and build and execute bulk insert query.
+    /// Split objects into batches and execute bulk insert query immediately against database.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="context"></param>
@@ -57,38 +57,22 @@ public static class BulkCreateDbContextExtensions
         return affectedRows;
     }
 
-    /// <summary>
-    /// Split (tracked or untracked) objects into batches and build and execute bulk insert query.
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="context"></param>
-    /// <param name="objects">Tracked or untracked objects.</param>
-    /// <param name="batchSize">Number of objects included for each query.</param>
-    /// <returns>Number of written rows.</returns>
-    public static int BulkCreateRetrieveKeys<T>(this DbContext context, IEnumerable<T> objects, int batchSize = 100)
+    public static T[] BulkCreateRetrieve<T>(this DbContext context, IEnumerable<T> objects, int batchSize = 100)
         where T : class
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(batchSize, 0);
 
         var bulkService = GetBulkOperationService(context);
-        return bulkService.ExecuteBulkInsertRetrieveKeys(context, objects, batchSize);
+        return bulkService.ExecuteBulkInsertRetrieve(context, objects, batchSize);
     }
 
-    /// <summary>
-    /// Split (tracked or untracked) objects into batches and build and execute bulk insert query.
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="context"></param>
-    /// <param name="objects">Tracked or untracked objects.</param>
-    /// <param name="batchSize">Number of objects included for each query.</param>
-    /// <returns>Number of written rows.</returns>
-    public static Task<int> BulkCreateRetrieveKeysAsync<T>(this DbContext context, IEnumerable<T> objects, int batchSize = 100)
+    public static Task<T[]> BulkCreateRetrieveAsync<T>(this DbContext context, IEnumerable<T> objects, int batchSize = 100)
         where T : class
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(batchSize, 0);
 
         var bulkService = GetBulkOperationService(context);
-        return bulkService.ExecuteBulkInsertRetrieveKeysAsync(context, objects, batchSize);
+        return bulkService.ExecuteBulkInsertRetrieveAsync(context, objects, batchSize);
     }
 
     internal static IBulkOperationService GetBulkOperationService(this DbContext context)

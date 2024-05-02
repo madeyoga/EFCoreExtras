@@ -36,8 +36,6 @@ public class BulkCreateBenchmark
             _data.Add(employee);
         }
 
-        dataArray = _data.ToArray();
-
         var serviceCollection = new ServiceCollection();
         serviceCollection.AddEfCoreExtras();
         serviceCollection.AddDbContext<TestDbContext>(o =>
@@ -68,27 +66,27 @@ public class BulkCreateBenchmark
     //    _scope.Dispose();
     //}
 
-    //[Benchmark(Baseline = true)]
-    //public int EFCore_SaveChanges()
-    //{
-    //    using var scope = _services.CreateScope();
+    [Benchmark(Baseline = true)]
+    public int EFCore_SaveChanges()
+    {
+        using var scope = _services.CreateScope();
 
-    //    using var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+        using var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
 
-    //    context.Database.OpenConnection();
-    //    context.Database.EnsureCreated();
+        context.Database.OpenConnection();
+        context.Database.EnsureCreated();
 
-    //    context.AddRange(_data);
-    //    int affectedRows = context.SaveChanges();
+        context.AddRange(_data);
+        int affectedRows = context.SaveChanges();
 
-    //    context.Database.EnsureDeleted();
-    //    context.Database.CloseConnection();
+        context.Database.EnsureDeleted();
+        context.Database.CloseConnection();
 
-    //    return affectedRows;
-    //}
+        return affectedRows;
+    }
 
     [Benchmark]
-    public int EFCoreExtras_BulkCreate_100BatchSize()
+    public int EFCoreExtras_BulkCreate()
     {
         using var scope = _services.CreateScope();
 
@@ -103,5 +101,39 @@ public class BulkCreateBenchmark
         context.Database.CloseConnection();
 
         return affectedRows;
+    }
+
+    [Benchmark]
+    public void EFCoreExtras_ExecuteBulkInsert_Retrieve()
+    {
+        using var scope = _services.CreateScope();
+
+        using var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+
+        context.Database.OpenConnection();
+        context.Database.EnsureCreated();
+
+        var employees = context.BulkCreateRetrieve(_data);
+
+        context.Database.EnsureDeleted();
+        context.Database.CloseConnection();
+    }
+
+    [Benchmark]
+    public void EFCoreExtras_ExecuteBulkInsert_Retrieve_BeginTrack()
+    {
+        using var scope = _services.CreateScope();
+
+        using var context = scope.ServiceProvider.GetRequiredService<TestDbContext>();
+
+        context.Database.OpenConnection();
+        context.Database.EnsureCreated();
+
+        var employees = context.BulkCreateRetrieve(_data);
+
+        context.AttachRange(employees);
+
+        context.Database.EnsureDeleted();
+        context.Database.CloseConnection();
     }
 }

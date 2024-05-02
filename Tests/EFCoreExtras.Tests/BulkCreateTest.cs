@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EFCoreExtras.Tests;
@@ -31,6 +32,21 @@ public class BulkCreateTest
 
         // Auto increment Id
         itemsAutoIncrement.AddRange([
+            new Item { Name = "A", },
+            new Item { Name = "B", },
+            new Item { Name = "C", },
+            new Item { Name = "D", },
+            new Item { Name = "E", },
+            new Item { Name = "A", },
+            new Item { Name = "B", },
+            new Item { Name = "C", },
+            new Item { Name = "D", },
+            new Item { Name = "E", },
+            new Item { Name = "A", },
+            new Item { Name = "B", },
+            new Item { Name = "C", },
+            new Item { Name = "D", },
+            new Item { Name = "E", },
             new Item { Name = "A", },
             new Item { Name = "B", },
             new Item { Name = "C", },
@@ -106,7 +122,7 @@ public class BulkCreateTest
     [TestMethod]
     public async Task BulkCreateAsyncListOfItems_AutoIncrement()
     {
-        await _dbContext.BulkCreateRetrieveKeysAsync(itemsAutoIncrement, 5);
+        await _dbContext.BulkCreateAsync(itemsAutoIncrement, 5);
 
         Assert.AreEqual(itemsAutoIncrement.Count, _dbContext.Items.Count());
 
@@ -125,7 +141,7 @@ public class BulkCreateTest
     [TestMethod]
     public void BulkCreateListOfItems_AutoIncrement()
     {
-        _dbContext.BulkCreateRetrieveKeys(itemsAutoIncrement, 5);
+        _dbContext.BulkCreate(itemsAutoIncrement, 5);
 
         Assert.AreEqual(itemsAutoIncrement.Count, _dbContext.Items.Count());
 
