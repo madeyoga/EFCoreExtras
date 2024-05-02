@@ -1,4 +1,10 @@
+# Running Benchmarks
+
 ## Bulk Create
+
+```sh
+> dotnet run -c Release --filter *BulkCreateBenchmark*
+```
 
 ```
 BenchmarkDotNet v0.13.12, Windows 10 (10.0.19045.4291/22H2/2022Update)
@@ -20,6 +26,10 @@ Intel Core i7-8700K CPU 3.70GHz (Coffee Lake), 1 CPU, 12 logical and 6 physical 
 
 ### 2 Columns
 
+```sh
+> dotnet run -c Release --filter *BulkUpdateBenchmark*
+```
+
 ```
 BenchmarkDotNet v0.13.12, Windows 10 (10.0.19045.4291/22H2/2022Update)
 Intel Core i7-8700K CPU 3.70GHz (Coffee Lake), 1 CPU, 12 logical and 6 physical cores
@@ -38,6 +48,10 @@ InvocationCount=1  UnrollFactor=1
 
 
 ### 9 Columns
+
+```sh
+> dotnet run -c Release --filter *BulkUpdate9ColumnsBenchmark*
+```
 
 ```
 BenchmarkDotNet v0.13.12, Windows 10 (10.0.19045.4291/22H2/2022Update)
