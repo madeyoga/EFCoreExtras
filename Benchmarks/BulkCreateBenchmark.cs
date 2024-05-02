@@ -104,7 +104,7 @@ public class BulkCreateBenchmark
     }
 
     [Benchmark]
-    public void EFCoreExtras_ExecuteBulkInsert_Retrieve()
+    public void EFCoreExtras_BulkCreateRetrieve()
     {
         using var scope = _services.CreateScope();
 
@@ -120,7 +120,7 @@ public class BulkCreateBenchmark
     }
 
     [Benchmark]
-    public void EFCoreExtras_ExecuteBulkInsert_Retrieve_BeginTrack()
+    public void EFCoreExtras_BulkCreateRetrieve_BeginTrack()
     {
         using var scope = _services.CreateScope();
 

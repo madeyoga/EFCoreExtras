@@ -84,9 +84,10 @@ public class BulkCreateTest
     [TestMethod]
     public async Task BulkCreateAsyncListOfItems()
     {
-        await _dbContext.BulkCreateAsync(items, 5);
+        var writtenRows = await _dbContext.BulkCreateAsync(items, 5);
 
         Assert.AreEqual(items.Count, _dbContext.Items.Count());
+        Assert.AreEqual(items.Count, writtenRows);
 
         var itemExists = true;
         foreach (var item in items)
@@ -103,9 +104,10 @@ public class BulkCreateTest
     [TestMethod]
     public void BulkCreateListOfItems()
     {
-        _dbContext.BulkCreate(items, 5);
+        var writtenRows = _dbContext.BulkCreate(items, 5);
 
         Assert.AreEqual(items.Count, _dbContext.Items.Count());
+        Assert.AreEqual(items.Count, writtenRows);
 
         var itemExists = true;
         foreach (var item in items)
@@ -122,12 +124,13 @@ public class BulkCreateTest
     [TestMethod]
     public async Task BulkCreateAsyncListOfItems_AutoIncrement()
     {
-        await _dbContext.BulkCreateAsync(itemsAutoIncrement, 5);
+        var items = await _dbContext.BulkCreateRetrieveAsync(itemsAutoIncrement, 5);
 
         Assert.AreEqual(itemsAutoIncrement.Count, _dbContext.Items.Count());
+        Assert.AreEqual(itemsAutoIncrement.Count, items.Length);
 
         var itemExists = true;
-        foreach (var item in itemsAutoIncrement)
+        foreach (var item in items)
         {
             itemExists = itemExists && _dbContext.Items
                 .Where(i => i.Id == item.Id)
@@ -141,12 +144,13 @@ public class BulkCreateTest
     [TestMethod]
     public void BulkCreateListOfItems_AutoIncrement()
     {
-        _dbContext.BulkCreate(itemsAutoIncrement, 5);
+        var items = _dbContext.BulkCreateRetrieve(itemsAutoIncrement, 5);
 
         Assert.AreEqual(itemsAutoIncrement.Count, _dbContext.Items.Count());
+        Assert.AreEqual(itemsAutoIncrement.Count, items.Length);
 
         var itemExists = true;
-        foreach (var item in itemsAutoIncrement)
+        foreach (var item in items)
         {
             itemExists = itemExists && _dbContext.Items
                 .Where(i => i.Id == item.Id)

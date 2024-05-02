@@ -88,7 +88,7 @@ public class BulkUpdate9ColumnsBenchmark
     }
 
     [Benchmark]
-    public int EFCoreExtras_BulkUpdate()
+    public int EFCoreExtras_BulkUpdate_BatchSize10()
     {
         return _context.BulkUpdate(_data, [
             "Name",
@@ -100,7 +100,23 @@ public class BulkUpdate9ColumnsBenchmark
             "Salary",
             "Department",
             "Position",
-        ]);
+        ], 10);
+    }
+
+    [Benchmark]
+    public int EFCoreExtras_BulkUpdate_BatchSize100()
+    {
+        return _context.BulkUpdate(_data, [
+            "Name",
+            "Age",
+            "Email",
+            "Address",
+            "DateOfBirth",
+            "IsActive",
+            "Salary",
+            "Department",
+            "Position",
+        ]); // default batchSize 100
     }
 
     [Benchmark(Baseline = true)]
