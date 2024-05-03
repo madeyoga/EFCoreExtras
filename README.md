@@ -1,20 +1,33 @@
 # EFCoreExtras
 
+![NuGet Version](https://img.shields.io/nuget/v/EFCoreExtras)
+![GitHub License](https://img.shields.io/github/license/madeyoga/EFCoreExtras)
+
+
 Bulk extensions for Entity Framework Core.
 
 ## Features
 
-### Bulk extensions
+### Bulk operations
 
 Bulk operations typically reduce the number of database round-trips required. This make bulk operations can often be faster than calling `DbContext.SaveChangesAsync()`.
 
-- `BulkCreateAsync`
-- `BulkUpdateAsync`
 
-### Others
+## Installing via NuGet
 
-- `Pagination`: Easily paginate `IQueryable` with `Pagination` class.
+The easiest way to install EFCoreExtras is via [NuGet](https://www.nuget.org/packages/EFCoreExtras/).
 
+Install the library using the following .net cli command
+
+```
+dotnet add package EFCoreExtras
+```
+
+or in Visual Studio's Package Manager Console, enter the following command:
+
+```
+Install-Package EFCoreExtras
+```
 
 ## Usage
 
@@ -34,7 +47,7 @@ foreach (int i = 0; i < 1000; i++)
     employees.Add(employee);
 }
 
-await context.BulkCreateAsync(employees, batchSize: 500);
+await context.BulkCreateAsync(employees, batchSize: 100);
 ```
 
 ```sql
@@ -102,6 +115,3 @@ return TypedResults.Ok(response);
 
 ## Contribution
 Your contributions are always welcome! If you find any bugs or have suggestions for improvement, please feel free to open an issue or a pull request and let's sort things out.
-
-## License
-This library is licensed under the MIT License.
