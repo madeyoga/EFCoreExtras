@@ -14,7 +14,6 @@ namespace EFCoreExtras.Benchmarks;
 public class BulkCreateBenchmark
 {
     private readonly List<Employee> _data = [];
-    private Employee[] dataArray = null!;
     private IServiceProvider _services = null!;
 
     //private IServiceScope _scope = null!;
